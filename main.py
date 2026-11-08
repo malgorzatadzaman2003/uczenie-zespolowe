@@ -54,6 +54,7 @@ from src.preprocessing import (
 
 from src.experiment import run_dataset_experiment
 
+from src.statistics import run_statistical_analysis
 
 def main():
     print("=" * 50)
@@ -870,7 +871,56 @@ def test_experiment():
 
     print("\nWyniki zapisano w results/test_experiment.csv")
 
-    
+
+def test_statistical_analysis():
+    test_results = pd.read_csv("results/test_experiment.csv")
+
+    statistical_results = run_statistical_analysis(
+        results=test_results,
+        output_dir="results/statistics",
+    )
+
+    print("\n" + "=" * 60)
+    print("AGREGACJA WYNIKÓW")
+    print("=" * 60)
+
+    print(
+        statistical_results["aggregated_results"].head()
+    )
+
+    print("\n" + "=" * 60)
+    print("KORELACJE SPEARMANA")
+    print("=" * 60)
+
+    print(
+        statistical_results["spearman_by_dataset"].head()
+    )
+
+    print("\n" + "=" * 60)
+    print("PODSUMOWANIE KORELACJI")
+    print("=" * 60)
+
+    print(
+        statistical_results["spearman_summary"].head()
+    )
+
+    print("\n" + "=" * 60)
+    print("TEST FRIEDMANA")
+    print("=" * 60)
+
+    print(
+        statistical_results["friedman_tests"]
+    )
+
+    print("\n" + "=" * 60)
+    print("TESTY WILCOXONA")
+    print("=" * 60)
+
+    print(
+        statistical_results["wilcoxon_pairwise"].head()
+    )
+
+
 if __name__ == "__main__":
     test_sampling()
     test_diversity()
@@ -879,3 +929,4 @@ if __name__ == "__main__":
     test_datasets()
     test_preprocessing()
     test_experiment()
+    test_statistical_analysis()
