@@ -27,3 +27,6 @@ data/*
 
 # Experiment results
 results/
+
+# Figures results
+figures/

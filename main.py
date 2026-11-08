@@ -56,6 +56,12 @@ from src.experiment import run_dataset_experiment
 
 from src.statistics import run_statistical_analysis
 
+# ============================================================
+# TEST WIZUALIZACJI
+# ============================================================
+
+from src.visualization import run_visualizations
+
 def main():
     print("=" * 50)
     print("UCZENIE ZESPOLOWE - ANALIZA BAGGINGU")
@@ -872,7 +878,7 @@ def test_experiment():
     print("\nWyniki zapisano w results/test_experiment.csv")
 
 
-def test_statistical_analysis():
+def test_statistical_analysis_and_visualization():
     test_results = pd.read_csv("results/test_experiment.csv")
 
     statistical_results = run_statistical_analysis(
@@ -920,6 +926,16 @@ def test_statistical_analysis():
         statistical_results["wilcoxon_pairwise"].head()
     )
 
+    test_results_vis = pd.read_csv(
+    "results/test_experiment.csv"
+    )
+
+    run_visualizations(
+        results=test_results_vis,
+        statistical_results=statistical_results,
+        output_dir="figures/test",
+    )
+
 
 if __name__ == "__main__":
     test_sampling()
@@ -929,4 +945,4 @@ if __name__ == "__main__":
     test_datasets()
     test_preprocessing()
     test_experiment()
-    test_statistical_analysis()
+    test_statistical_analysis_and_visualization()
