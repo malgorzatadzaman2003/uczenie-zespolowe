@@ -45,6 +45,13 @@ from src.metrics import (
     evaluate_ensemble
 )
 
+from src.datasets import list_datasets, load_dataset
+
+from src.preprocessing import (
+    preprocess_train_test,
+    get_feature_names
+)
+
 def main():
     print("=" * 50)
     print("UCZENIE ZESPOLOWE - ANALIZA BAGGINGU")
@@ -706,8 +713,139 @@ def test_metrics():
     print("\nWszystkie testy metryk zakończone poprawnie!")
 
 
+def test_datasets():
+    print("\n" + "=" * 60)
+    print("TESTOWANIE WCZYTYWANIA DANYCH")
+    print("=" * 60)
+
+    classification_datasets = list_datasets("classification")
+    regression_datasets = list_datasets("regression")
+
+    print("\nLiczba zbiorów klasyfikacyjnych:",
+          len(classification_datasets))
+    print("Liczba zbiorów regresyjnych:",
+          len(regression_datasets))
+
+    assert len(classification_datasets) == 12
+    assert len(regression_datasets) == 12
+
+    # Test 1: Breast Cancer
+    print("\nTEST 1 - Breast Cancer")
+
+    dataset = load_dataset("breast_cancer")
+
+    X = dataset["X"]
+    y = dataset["y"]
+
+    print("Rodzaj zadania:", dataset["task"])
+    print("Liczba obserwacji:", len(X))
+    print("Liczba cech:", X.shape[1])
+    print("Liczba klas:", y.nunique())
+
+    assert dataset["task"] == "classification"
+    assert len(X) == len(y)
+    assert X.shape[1] == 30
+    assert y.nunique() == 2
+
+    # Test 2: Diabetes
+    print("\nTEST 2 - Diabetes")
+
+    dataset = load_dataset("diabetes")
+
+    X = dataset["X"]
+    y = dataset["y"]
+
+    print("Rodzaj zadania:", dataset["task"])
+    print("Liczba obserwacji:", len(X))
+    print("Liczba cech:", X.shape[1])
+
+    assert dataset["task"] == "regression"
+    assert len(X) == len(y)
+    assert X.shape[1] == 10
+
+    print("\nWszystkie testy wczytywania danych zakończone poprawnie!")
+
+
+def test_preprocessing():
+    print("\n" + "=" * 60)
+    print("TESTOWANIE PREPROCESSINGU")
+    print("=" * 60)
+
+    # ==========================================
+    # Dane testowe z brakami
+    # ==========================================
+
+    X_train = pd.DataFrame({
+        "age": [20, 30, np.nan, 40, 50, 60],
+        "income": [2000, 3000, 2500, np.nan, 5000, 6000],
+        "city": ["Warsaw", "Krakow", None, "Warsaw", "Gdansk", "Krakow"],
+        "education": ["high", "medium", "high", None, "low", "medium"]
+    })
+
+    X_test = pd.DataFrame({
+        "age": [25, np.nan, 55],
+        "income": [2200, 4500, np.nan],
+        "city": ["Warsaw", "Poznan", None],
+        "education": ["high", "very_high", "low"]
+    })
+
+    print("\nLiczba obserwacji treningowych:", len(X_train))
+    print("Liczba obserwacji testowych:", len(X_test))
+
+    print("\nBraki przed preprocessingiem:")
+    print("Trening:", X_train.isna().sum().sum())
+    print("Test:", X_test.isna().sum().sum())
+
+    # ==========================================
+    # Preprocessing
+    # ==========================================
+
+    X_train_processed, X_test_processed, preprocessor = (
+        preprocess_train_test(X_train, X_test)
+    )
+
+    feature_names = get_feature_names(preprocessor)
+
+    print("\nWymiary po preprocessingu:")
+    print("Trening:", X_train_processed.shape)
+    print("Test:", X_test_processed.shape)
+
+    print("\nNazwy cech po preprocessingu:")
+    print(feature_names)
+
+    print("\nLiczba wartości NaN po preprocessingu:")
+    print("Trening:", np.isnan(X_train_processed).sum())
+    print("Test:", np.isnan(X_test_processed).sum())
+
+    # ==========================================
+    # Asercje
+    # ==========================================
+
+    assert X_train_processed.shape[0] == len(X_train)
+    assert X_test_processed.shape[0] == len(X_test)
+
+    assert X_train_processed.shape[1] == X_test_processed.shape[1]
+
+    assert np.isfinite(X_train_processed).all()
+    assert np.isfinite(X_test_processed).all()
+
+    # Sprawdzamy, czy nowa kategoria "Poznan"
+    # nie spowodowała błędu.
+    assert "city_Poznan" not in feature_names
+
+    # Sprawdzamy, czy powstała kolumna dla kategorii brakującej.
+    assert any(
+        "missing" in str(name)
+        for name in feature_names
+    )
+
+    print("\nWszystkie testy preprocessingu zakończone poprawnie!")
+
+
 if __name__ == "__main__":
     test_sampling()
     test_diversity()
     test_models()
     test_metrics()
+    test_datasets()
+    test_preprocessing()
