@@ -24,3 +24,6 @@ data/*
 
 # Temporary files
 *.log
+
+# Experiment results
+results/
