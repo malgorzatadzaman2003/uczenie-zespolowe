@@ -16,6 +16,13 @@ from src.sampling import (
     generate_stratified_bootstrap_samples
 )
 
+from src.diversity import (
+    jaccard_distance,
+    multiplicity_distance,
+    mean_pairwise_jaccard_distance,
+    mean_pairwise_multiplicity_distance
+)
+
 def main():
     print("=" * 50)
     print("UCZENIE ZESPOLOWE - ANALIZA BAGGINGU")
@@ -155,6 +162,99 @@ def test_sampling():
 
     print("\nTesty próbkowania zakończone.")
 
-    
+
+def test_diversity():
+
+    print("\n" + "=" * 60)
+    print("TESTOWANIE MIAR ROZNORODNOSCI")
+    print("=" * 60)
+
+    # -----------------------------------------
+    # Test 1: Odległość Jaccarda
+    # -----------------------------------------
+
+    sample_a = np.array([0, 1, 2, 2, 3])
+    sample_b = np.array([0, 1, 4, 4, 5])
+
+    jaccard = jaccard_distance(sample_a, sample_b)
+
+    print("\nTest 1 - Jaccard distance")
+    print("Próbka A:", sample_a)
+    print("Próbka B:", sample_b)
+    print("Odległość Jaccarda:", jaccard)
+
+    # Oczekiwany wynik: 1 - 2/6 = 0.6667
+    assert np.isclose(jaccard, 2 / 3)
+
+    # -----------------------------------------
+    # Test 2: Identyczne zbiory
+    # -----------------------------------------
+
+    sample_c = np.array([0, 0, 1, 2])
+    sample_d = np.array([2, 1, 0, 0])
+
+    jaccard_identical = jaccard_distance(
+        sample_c,
+        sample_d
+    )
+
+    print("\nTest 2 - Identyczne zbiory")
+    print("Odległość Jaccarda:", jaccard_identical)
+
+    assert np.isclose(jaccard_identical, 0.0)
+
+    # -----------------------------------------
+    # Test 3: Odległość krotności
+    # -----------------------------------------
+
+    sample_e = np.array([0, 0, 1, 2])
+    sample_f = np.array([0, 1, 1, 3])
+
+    multiplicity = multiplicity_distance(
+        sample_e,
+        sample_f,
+        n_observations=4
+    )
+
+    print("\nTest 3 - Multiplicity distance")
+    print("Próbka E:", sample_e)
+    print("Próbka F:", sample_f)
+    print("Odległość krotności:", multiplicity)
+
+    # Oczekiwany wynik: 0.5
+    assert np.isclose(multiplicity, 0.5)
+
+    # -----------------------------------------
+    # Test 4: Średnia dla wszystkich par
+    # -----------------------------------------
+
+    samples = [
+        np.array([0, 0, 1, 2]),
+        np.array([0, 1, 1, 3]),
+        np.array([2, 2, 3, 3])
+    ]
+
+    mean_jaccard = mean_pairwise_jaccard_distance(
+        samples
+    )
+
+    mean_multiplicity = (
+        mean_pairwise_multiplicity_distance(
+            samples,
+            n_observations=4
+        )
+    )
+
+    print("\nTest 4 - Średnie miary zespołu")
+    print("Średnia odległość Jaccarda:", mean_jaccard)
+    print("Średnia odległość krotności:", mean_multiplicity)
+
+    assert 0 <= mean_jaccard <= 1
+    assert 0 <= mean_multiplicity <= 1
+
+    print("\nWszystkie testy miar zakończone poprawnie!")
+
+
 if __name__ == "__main__":
     test_sampling()
+    test_diversity()
