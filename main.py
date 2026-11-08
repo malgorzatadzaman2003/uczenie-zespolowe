@@ -4,6 +4,9 @@ import sklearn
 import scipy
 import matplotlib
 
+from sklearn.datasets import make_classification, make_regression
+
+
 from src.sampling import (
     generate_bootstrap_samples,
     generate_subsamples
@@ -26,6 +29,13 @@ from src.diversity import (
     unique_fraction,
     target_representativeness,
     feature_representativeness
+)
+
+from src.models import (
+    create_decision_tree,
+    train_ensemble,
+    predict_ensemble,
+    aggregate_predictions
 )
 
 def main():
@@ -440,8 +450,111 @@ def test_diversity():
         "zakończone poprawnie!"
     )
 
+def test_models():
+    print("\n" + "=" * 60)
+    print("TESTOWANIE MODELI")
+    print("=" * 60)
 
+    # ==========================================
+    # TEST 1: KLASYFIKACJA
+    # ==========================================
+
+    print("\nTEST 1 - Klasyfikacja")
+
+    X_class, y_class = make_classification(
+        n_samples=200,
+        n_features=10,
+        n_informative=6,
+        n_redundant=2,
+        n_classes=2,
+        random_state=42
+    )
+
+    samples_class = generate_bootstrap_samples(
+        n=len(X_class),
+        ratio=1.0,
+        n_estimators=100,
+        random_state=42
+    )
+
+    models_class = train_ensemble(
+        X_train=X_class,
+        y_train=y_class,
+        samples=samples_class,
+        task="classification",
+        random_state=42
+    )
+
+    predictions_class = predict_ensemble(
+        models=models_class,
+        X=X_class
+    )
+
+    final_class = aggregate_predictions(
+        predictions=predictions_class,
+        task="classification"
+    )
+
+    print("Liczba drzew:", len(models_class))
+    print("Rozmiar macierzy predykcji:", predictions_class.shape)
+    print("Liczba predykcji zespołu:", len(final_class))
+    print("Przykładowe predykcje:", final_class[:10])
+
+    assert len(models_class) == 100
+    assert predictions_class.shape == (100, 200)
+    assert len(final_class) == 200
+
+    # ==========================================
+    # TEST 2: REGRESJA
+    # ==========================================
+
+    print("\nTEST 2 - Regresja")
+
+    X_reg, y_reg = make_regression(
+        n_samples=200,
+        n_features=8,
+        n_informative=6,
+        noise=10,
+        random_state=42
+    )
+
+    samples_reg = generate_bootstrap_samples(
+        n=len(X_reg),
+        ratio=1.0,
+        n_estimators=100,
+        random_state=42
+    )
+
+    models_reg = train_ensemble(
+        X_train=X_reg,
+        y_train=y_reg,
+        samples=samples_reg,
+        task="regression",
+        random_state=42
+    )
+
+    predictions_reg = predict_ensemble(
+        models=models_reg,
+        X=X_reg
+    )
+
+    final_reg = aggregate_predictions(
+        predictions=predictions_reg,
+        task="regression"
+    )
+
+    print("Liczba drzew:", len(models_reg))
+    print("Rozmiar macierzy predykcji:", predictions_reg.shape)
+    print("Liczba predykcji zespołu:", len(final_reg))
+    print("Przykładowe predykcje:", final_reg[:5])
+
+    assert len(models_reg) == 100
+    assert predictions_reg.shape == (100, 200)
+    assert len(final_reg) == 200
+
+    print("\nWszystkie testy modeli zakończone poprawnie!")
 
 if __name__ == "__main__":
     test_sampling()
     test_diversity()
+    test_models()
