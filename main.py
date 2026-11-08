@@ -20,7 +20,12 @@ from src.diversity import (
     jaccard_distance,
     multiplicity_distance,
     mean_pairwise_jaccard_distance,
-    mean_pairwise_multiplicity_distance
+    mean_pairwise_multiplicity_distance,
+    target_distribution_distance,
+    mean_pairwise_target_distance,
+    unique_fraction,
+    target_representativeness,
+    feature_representativeness
 )
 
 def main():
@@ -253,6 +258,188 @@ def test_diversity():
     assert 0 <= mean_multiplicity <= 1
 
     print("\nWszystkie testy miar zakończone poprawnie!")
+
+
+    # -----------------------------------------
+    # Test 5: DY dla klasyfikacji
+    # -----------------------------------------
+
+    y_class = np.array([0, 0, 1, 1])
+
+    sample_a = np.array([0, 0, 1, 2])
+    sample_b = np.array([0, 2, 2, 3])
+
+    dy_class = target_distribution_distance(
+        sample_a,
+        sample_b,
+        y_class,
+        task="classification"
+    )
+
+    print("\nTest 5 - Target distance (classification)")
+    print("Odległość DY:", dy_class)
+
+    # Próbka A: 75% klasy 0, 25% klasy 1.
+    # Próbka B: 25% klasy 0, 75% klasy 1.
+    # Oczekiwany wynik: 0.5.
+    assert np.isclose(dy_class, 0.5)
+
+    # -----------------------------------------
+    # Test 6: DY dla regresji
+    # -----------------------------------------
+
+    y_reg = np.array([0, 1, 2, 3, 4], dtype=float)
+
+    sample_a = np.array([0, 1])
+    sample_b = np.array([2, 3])
+
+    dy_reg = target_distribution_distance(
+        sample_a,
+        sample_b,
+        y_reg,
+        task="regression"
+    )
+
+    print("\nTest 6 - Target distance (regression)")
+    print("Odległość DY:", dy_reg)
+
+    # Wartości próbek: [0, 1] oraz [2, 3].
+    # Odległość Wassersteina wynosi 2.
+    # Odchylenie standardowe y_reg wynosi sqrt(2).
+    # Oczekiwany wynik: sqrt(2).
+    assert np.isclose(dy_reg, np.sqrt(2))
+
+    # -----------------------------------------
+    # Test 7: Średnia DY dla wszystkich par
+    # -----------------------------------------
+
+    samples_class = [
+        np.array([0, 0, 1, 2]),
+        np.array([0, 1, 1, 3]),
+        np.array([2, 2, 3, 3])
+    ]
+
+    mean_dy_class = mean_pairwise_target_distance(
+        samples_class,
+        y_class,
+        task="classification"
+    )
+
+    print("\nTest 7 - Mean target distance")
+    print("Średnia DY:", mean_dy_class)
+
+    assert 0 <= mean_dy_class <= 1
+
+    print("\nTesty DY zakończone poprawnie!")
+
+
+    # -----------------------------------------
+    # Test 8: Udział unikalnych obserwacji Ui
+    # -----------------------------------------
+
+    sample = np.array([0, 0, 1, 2, 2, 3])
+
+    ui = unique_fraction(
+        sample,
+        n_observations=10
+    )
+
+    print("\nTest 8 - Unique fraction")
+    print("Udział unikalnych obserwacji:", ui)
+
+    # 4 unikalne obserwacje / 10 wszystkich.
+    assert np.isclose(ui, 0.4)
+
+    # -----------------------------------------
+    # Test 9: Reprezentatywność targetu - klasyfikacja
+    # -----------------------------------------
+
+    y_class = np.array([0, 0, 1, 1])
+
+    # Próbka zawiera te same proporcje klas co cały zbiór.
+    sample = np.array([0, 1, 2, 3])
+
+    ry_class = target_representativeness(
+        sample,
+        y_class,
+        task="classification"
+    )
+
+    print("\nTest 9 - Target representativeness (classification)")
+    print("RY:", ry_class)
+
+    # Rozkłady klas są identyczne.
+    assert np.isclose(ry_class, 0.0)
+
+    # -----------------------------------------
+    # Test 10: Reprezentatywność targetu - regresja
+    # -----------------------------------------
+
+    y_reg = np.array([0, 1, 2, 3, 4], dtype=float)
+
+    # Próbka zawiera cały zbiór treningowy.
+    sample = np.arange(len(y_reg))
+
+    ry_reg = target_representativeness(
+        sample,
+        y_reg,
+        task="regression"
+    )
+
+    print("\nTest 10 - Target representativeness (regression)")
+    print("RY:", ry_reg)
+
+    # Identyczne rozkłady dają odległość zero.
+    assert np.isclose(ry_reg, 0.0)
+
+    # -----------------------------------------
+    # Test 11: Reprezentatywność cech RX
+    # -----------------------------------------
+
+    X_train = np.array([
+        [1.0, 10.0],
+        [2.0, 20.0],
+        [3.0, 30.0],
+        [4.0, 40.0]
+    ])
+
+    # Próbka zawiera wszystkie obserwacje.
+    sample = np.arange(len(X_train))
+
+    rx = feature_representativeness(
+        sample,
+        X_train
+    )
+
+    print("\nTest 11 - Feature representativeness")
+    print("RX:", rx)
+
+    # Rozkłady cech są identyczne.
+    assert np.isclose(rx, 0.0)
+
+    # -----------------------------------------
+    # Test 12: RX dla próbki niereprezentatywnej
+    # -----------------------------------------
+
+    sample = np.array([2, 3])
+
+    rx_partial = feature_representativeness(
+        sample,
+        X_train
+    )
+
+    print("\nTest 12 - Feature representativeness (partial sample)")
+    print("RX:", rx_partial)
+
+    # Próbka zawiera wyłącznie obserwacje o większych
+    # wartościach cech, więc odległość powinna być dodatnia.
+    assert rx_partial > 0
+
+    print(
+        "\nTesty miar różnorodności i reprezentatywności "
+        "zakończone poprawnie!"
+    )
+
 
 
 if __name__ == "__main__":
