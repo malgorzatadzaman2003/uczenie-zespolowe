@@ -9,6 +9,13 @@ from src.sampling import (
     generate_subsamples
 )
 
+from src.sampling import (
+    generate_bootstrap_samples,
+    generate_subsamples,
+    generate_common_core_samples,
+    generate_stratified_bootstrap_samples
+)
+
 def main():
     print("=" * 50)
     print("UCZENIE ZESPOLOWE - ANALIZA BAGGINGU")
@@ -42,5 +49,112 @@ def main():
     print("Unikalne obserwacje w podpróbce:",
           len(np.unique(subsamples[0])))
 
+
+def test_sampling():
+
+    print("\n" + "=" * 60)
+    print("TESTOWANIE WARIANTOW PROBKOWANIA")
+    print("=" * 60)
+
+    n = 1000
+    n_estimators = 100
+    seed = 42
+
+    # S1: Bootstrap
+    bootstrap = generate_bootstrap_samples(
+        n=n,
+        ratio=1.0,
+        n_estimators=n_estimators,
+        random_state=seed
+    )
+
+    print("\nS1 - Bootstrap")
+    print("Liczba próbek:", len(bootstrap))
+    print("Rozmiar próbki:", len(bootstrap[0]))
+    print(
+        "Liczba unikalnych obserwacji:",
+        len(np.unique(bootstrap[0]))
+    )
+
+    # S2: Subsampling
+    subsamples = generate_subsamples(
+        n=n,
+        ratio=0.63,
+        n_estimators=n_estimators,
+        random_state=seed
+    )
+
+    print("\nS2 - Subsampling")
+    print("Liczba próbek:", len(subsamples))
+    print("Rozmiar próbki:", len(subsamples[0]))
+    print(
+        "Liczba unikalnych obserwacji:",
+        len(np.unique(subsamples[0]))
+    )
+
+    # S3: Common core
+    common_core = generate_common_core_samples(
+        n=n,
+        ratio=0.5,
+        alpha=0.5,
+        n_estimators=n_estimators,
+        random_state=seed
+    )
+
+    print("\nS3 - Common core")
+    print("Liczba próbek:", len(common_core))
+    print("Rozmiar próbki:", len(common_core[0]))
+    print(
+        "Liczba wspólnych obserwacji:",
+        len(
+            set(common_core[0]).intersection(
+                set(common_core[1])
+            )
+        )
+    )
+
+    # S4: Stratified bootstrap - klasyfikacja
+    y_class = np.array(
+        [0] * 700 + [1] * 300
+    )
+
+    stratified_class = generate_stratified_bootstrap_samples(
+        y=y_class,
+        task="classification",
+        n_estimators=n_estimators,
+        random_state=seed
+    )
+
+    print("\nS4 - Stratified bootstrap (klasyfikacja)")
+    print("Liczba próbek:", len(stratified_class))
+    print("Rozmiar próbki:", len(stratified_class[0]))
+
+    print(
+        "Liczba obserwacji klasy 0:",
+        np.sum(y_class[stratified_class[0]] == 0)
+    )
+
+    print(
+        "Liczba obserwacji klasy 1:",
+        np.sum(y_class[stratified_class[0]] == 1)
+    )
+
+    # S4: Stratified bootstrap - regresja
+    y_regression = np.linspace(0, 100, 1000)
+
+    stratified_reg = generate_stratified_bootstrap_samples(
+        y=y_regression,
+        task="regression",
+        n_estimators=n_estimators,
+        random_state=seed
+    )
+
+    print("\nS4 - Stratified bootstrap (regresja)")
+    print("Liczba próbek:", len(stratified_reg))
+    print("Rozmiar próbki:", len(stratified_reg[0]))
+
+    print("\nTesty próbkowania zakończone.")
+
+    
 if __name__ == "__main__":
-    main()
+    test_sampling()

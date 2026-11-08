@@ -97,3 +97,165 @@ def generate_subsamples(n, ratio, n_estimators=100,
         samples.append(sample)
 
     return samples
+
+
+def generate_common_core_samples(
+    n,
+    ratio=0.5,
+    alpha=0.5,
+    n_estimators=100,
+    random_state=None
+):
+    """
+    Generates samples with a common core (S3).
+
+    Each sample has the same size.
+    'alpha' determines the proportion of shared observations.
+    Sampling is performed without replacement.
+    """
+
+    if n <= 0:
+        raise ValueError("n musi być dodatnie.")
+
+    if not 0 < ratio <= 1:
+        raise ValueError("ratio musi należeć do (0, 1].")
+
+    if not 0 <= alpha <= 1:
+        raise ValueError("alpha musi należeć do [0, 1].")
+
+    if n_estimators <= 0:
+        raise ValueError("n_estimators musi być dodatnie.")
+
+    sample_size = round(ratio * n)
+    common_size = round(alpha * sample_size)
+    private_size = sample_size - common_size
+
+    if sample_size > n:
+        raise ValueError("Rozmiar próbki nie może przekraczać n.")
+
+    if common_size > n:
+        raise ValueError("Wspólny rdzeń jest zbyt duży.")
+
+    rng = np.random.default_rng(random_state)
+
+    # Losujemy wspólny rdzeń dla wszystkich drzew.
+    common_core = rng.choice(
+        n,
+        size=common_size,
+        replace=False
+    )
+
+    # Obserwacje spoza wspólnego rdzenia.
+    remaining = np.setdiff1d(
+        np.arange(n),
+        common_core
+    )
+
+    samples = []
+
+    for _ in range(n_estimators):
+
+        # Każde drzewo otrzymuje własną część próbki.
+        private_part = rng.choice(
+            remaining,
+            size=private_size,
+            replace=False
+        )
+
+        sample = np.concatenate([
+            common_core,
+            private_part
+        ])
+
+        # Mieszamy kolejność obserwacji.
+        rng.shuffle(sample)
+
+        samples.append(sample)
+
+    return samples
+
+
+
+def generate_stratified_bootstrap_samples(
+    y,
+    task="classification",
+    n_estimators=100,
+    random_state=None,
+    n_bins=10
+):
+    """
+    Generates stratified bootstrap samples (S4).
+
+    Classification:
+        Sampling is performed separately within each class.
+
+    Regression:
+        Observations are divided into groups based on their y-values,
+        and sampling is performed separately within each group.
+    """
+
+    y = np.asarray(y)
+
+    if len(y) == 0:
+        raise ValueError("y nie może być puste.")
+
+    if n_estimators <= 0:
+        raise ValueError("n_estimators musi być dodatnie.")
+
+    if task not in ("classification", "regression"):
+        raise ValueError(
+            "task musi mieć wartość 'classification' lub 'regression'."
+        )
+
+    rng = np.random.default_rng(random_state)
+
+    # Tworzymy grupy obserwacji.
+    if task == "classification":
+
+        groups = [
+            np.where(y == label)[0]
+            for label in np.unique(y)
+        ]
+
+    else:
+
+        if n_bins <= 0:
+            raise ValueError("n_bins musi być dodatnie.")
+
+        # Sortujemy indeksy według wartości zmiennej y.
+        sorted_indices = np.argsort(y)
+
+        # Dzielimy obserwacje na maksymalnie n_bins grup.
+        groups = [
+            group
+            for group in np.array_split(
+                sorted_indices,
+                min(n_bins, len(y))
+            )
+            if len(group) > 0
+        ]
+
+    samples = []
+
+    for _ in range(n_estimators):
+
+        sample_parts = []
+
+        # Bootstrap osobno w każdej grupie.
+        for group in groups:
+
+            sampled_group = rng.choice(
+                group,
+                size=len(group),
+                replace=True
+            )
+
+            sample_parts.append(sampled_group)
+
+        sample = np.concatenate(sample_parts)
+
+        rng.shuffle(sample)
+
+        samples.append(sample)
+
+    return samples
