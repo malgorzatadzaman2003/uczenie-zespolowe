@@ -5,7 +5,7 @@ import scipy
 import matplotlib
 
 from sklearn.datasets import make_classification, make_regression
-
+from sklearn.model_selection import train_test_split
 
 from src.sampling import (
     generate_bootstrap_samples,
@@ -36,6 +36,13 @@ from src.models import (
     train_ensemble,
     predict_ensemble,
     aggregate_predictions
+)
+
+from src.metrics import (
+    classification_metrics,
+    regression_metrics,
+    evaluate_individual_models,
+    evaluate_ensemble
 )
 
 def main():
@@ -554,7 +561,153 @@ def test_models():
 
     print("\nWszystkie testy modeli zakończone poprawnie!")
 
+
+def test_metrics():
+    print("\n" + "=" * 60)
+    print("TESTOWANIE METRYK")
+    print("=" * 60)
+
+    # ==========================================
+    # TEST 1: KLASYFIKACJA
+    # ==========================================
+
+    print("\nTEST 1 - Klasyfikacja")
+
+    X_class, y_class = make_classification(
+        n_samples=300,
+        n_features=10,
+        n_informative=6,
+        n_redundant=2,
+        n_classes=2,
+        random_state=42
+    )
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_class,
+        y_class,
+        test_size=0.25,
+        random_state=42,
+        stratify=y_class
+    )
+
+    classes = np.unique(y_train)
+
+    samples = generate_bootstrap_samples(
+        n=len(X_train),
+        ratio=1.0,
+        n_estimators=100,
+        random_state=42
+    )
+
+    models = train_ensemble(
+        X_train=X_train,
+        y_train=y_train,
+        samples=samples,
+        task="classification",
+        random_state=42
+    )
+
+    individual_results = evaluate_individual_models(
+        models=models,
+        X_test=X_test,
+        y_test=y_test,
+        task="classification",
+        classes=classes
+    )
+
+    ensemble_results = evaluate_ensemble(
+        models=models,
+        X_test=X_test,
+        y_test=y_test,
+        task="classification",
+        classes=classes
+    )
+
+    print("\nŚrednie wyniki pojedynczych drzew:")
+    for metric, values in individual_results.items():
+        print(
+            f"{metric}: "
+            f"średnia = {values['mean']:.4f}, "
+            f"odchylenie = {values['std']:.4f}"
+        )
+
+    print("\nWyniki całego zespołu:")
+    for metric, value in ensemble_results.items():
+        print(f"{metric}: {value:.4f}")
+
+    assert len(individual_results) == 3
+    assert len(ensemble_results) == 3
+
+    # ==========================================
+    # TEST 2: REGRESJA
+    # ==========================================
+
+    print("\nTEST 2 - Regresja")
+
+    X_reg, y_reg = make_regression(
+        n_samples=300,
+        n_features=8,
+        n_informative=6,
+        noise=10,
+        random_state=42
+    )
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_reg,
+        y_reg,
+        test_size=0.25,
+        random_state=42
+    )
+
+    samples = generate_bootstrap_samples(
+        n=len(X_train),
+        ratio=1.0,
+        n_estimators=100,
+        random_state=42
+    )
+
+    models = train_ensemble(
+        X_train=X_train,
+        y_train=y_train,
+        samples=samples,
+        task="regression",
+        random_state=42
+    )
+
+    individual_results = evaluate_individual_models(
+        models=models,
+        X_test=X_test,
+        y_test=y_test,
+        task="regression"
+    )
+
+    ensemble_results = evaluate_ensemble(
+        models=models,
+        X_test=X_test,
+        y_test=y_test,
+        task="regression"
+    )
+
+    print("\nŚrednie wyniki pojedynczych drzew:")
+    for metric, values in individual_results.items():
+        print(
+            f"{metric}: "
+            f"średnia = {values['mean']:.4f}, "
+            f"odchylenie = {values['std']:.4f}"
+        )
+
+    print("\nWyniki całego zespołu:")
+    for metric, value in ensemble_results.items():
+        print(f"{metric}: {value:.4f}")
+
+    assert len(individual_results) == 3
+    assert len(ensemble_results) == 3
+
+    print("\nWszystkie testy metryk zakończone poprawnie!")
+
+
 if __name__ == "__main__":
     test_sampling()
     test_diversity()
     test_models()
+    test_metrics()
