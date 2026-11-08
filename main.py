@@ -52,6 +52,9 @@ from src.preprocessing import (
     get_feature_names
 )
 
+from src.experiment import run_dataset_experiment
+
+
 def main():
     print("=" * 50)
     print("UCZENIE ZESPOLOWE - ANALIZA BAGGINGU")
@@ -841,7 +844,33 @@ def test_preprocessing():
 
     print("\nWszystkie testy preprocessingu zakończone poprawnie!")
 
+def test_experiment():
+    print("\n" + "=" * 60)
+    print("TESTOWANIE EKSPERYMENTU")
+    print("=" * 60)
 
+    results = run_dataset_experiment(
+        dataset_name="breast_cancer",
+        n_splits=2,
+        n_repeats=1,
+        n_estimators=5,
+        random_state=42,
+    )
+
+    print("\nPierwsze wyniki eksperymentu:")
+    print(results.head())
+
+    print("\nWymiary tabeli wynikowej:")
+    print(results.shape)
+
+    results.to_csv(
+        "results/test_experiment.csv",
+        index=False,
+    )
+
+    print("\nWyniki zapisano w results/test_experiment.csv")
+
+    
 if __name__ == "__main__":
     test_sampling()
     test_diversity()
@@ -849,3 +878,4 @@ if __name__ == "__main__":
     test_metrics()
     test_datasets()
     test_preprocessing()
+    test_experiment()
