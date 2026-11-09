@@ -1117,6 +1117,37 @@ def test_datasets():
 
     print("\n" + "=" * 70)
 
+def load_datasets_versions():
+    print("=" * 60)
+    print("TEST POBIERANIA ZBIORÓW DANYCH")
+    print("=" * 60)
+
+    errors = []
+
+    for dataset_name in list_datasets():
+
+        try:
+            dataset = load_dataset(dataset_name)
+
+            print(
+                f"{dataset_name:25s} "
+                f"X: {dataset['X'].shape} "
+                f"y: {dataset['y'].shape}"
+            )
+
+        except Exception as error:
+            errors.append((dataset_name, str(error)))
+            print(f"ERROR: {dataset_name}: {error}")
+
+    print("\n" + "=" * 60)
+    print(f"Poprawnie załadowane: {24 - len(errors)}/24")
+    print(f"Błędy: {len(errors)}")
+    print("=" * 60)
+
+    if errors:
+        for name, error in errors:
+            print(f"{name}: {error}")
+
 def test_preprocessing():
     print("\n" + "=" * 60)
     print("TESTOWANIE PREPROCESSINGU")
@@ -1191,6 +1222,81 @@ def test_preprocessing():
     )
 
     print("\nWszystkie testy preprocessingu zakończone poprawnie!")
+
+
+def test_preprocessing_all_datasets():
+    from src.datasets import DATASETS, load_dataset
+    from src.preprocessing import preprocess_train_test
+    from sklearn.model_selection import (
+        train_test_split,
+        StratifiedShuffleSplit
+    )
+
+    print("\n" + "=" * 60)
+    print("TEST PREPROCESSINGU WSZYSTKICH ZBIORÓW")
+    print("=" * 60)
+
+    successful = []
+    failed = []
+
+    for dataset_name, info in DATASETS.items():
+        try:
+            dataset = load_dataset(dataset_name)
+
+            X = dataset["X"]
+            y = dataset["y"]
+            task = dataset["task"]
+
+            if task == "classification":
+                splitter = StratifiedShuffleSplit(
+                    n_splits=1,
+                    test_size=0.2,
+                    random_state=42
+                )
+
+                train_idx, test_idx = next(
+                    splitter.split(X, y)
+                )
+
+                X_train = X.iloc[train_idx]
+                X_test = X.iloc[test_idx]
+
+            else:
+                X_train, X_test, _, _ = train_test_split(
+                    X,
+                    y,
+                    test_size=0.2,
+                    random_state=42
+                )
+
+            X_train_processed, X_test_processed, preprocessor = (
+                preprocess_train_test(X_train, X_test)
+            )
+
+            print(
+                f"OK | {dataset_name:22s} | "
+                f"train: {X_train_processed.shape} | "
+                f"test: {X_test_processed.shape}"
+            )
+
+            successful.append(dataset_name)
+
+        except Exception as error:
+            print(f"ERROR | {dataset_name}: {error}")
+            failed.append((dataset_name, str(error)))
+
+    print("\n" + "-" * 60)
+    print(f"Poprawnie przetworzone: {len(successful)}/24")
+    print(f"Błędy: {len(failed)}")
+
+    if failed:
+        print("\nZbiory wymagające poprawy:")
+        for name, error in failed:
+            print(f"- {name}: {error}")
+
+    else:
+        print("\nWszystkie zbiory przeszły test preprocessingu!")
+
 
 def test_experiment():
     print("\n" + "=" * 60)
@@ -1283,7 +1389,9 @@ if __name__ == "__main__":
     test_diversity()
     test_models()
     test_metrics()
+    load_datasets_versions()
     test_datasets()
     test_preprocessing()
+    test_preprocessing_all_datasets()
     test_experiment()
     test_statistical_analysis_and_visualization()

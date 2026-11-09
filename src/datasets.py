@@ -27,38 +27,46 @@ DATASETS = {
     "ionosphere": {
         "task": "classification",
         "source": "openml",
-        "openml_name": "ionosphere"
+        "openml_name": "ionosphere",
+        "openml_data_id": 59,
+        "drop_columns": ["a02"],
     },
     "sonar": {
         "task": "classification",
         "source": "openml",
-        "openml_name": "sonar"
+        "openml_name": "sonar",
+        "openml_data_id": 40,
     },
     "spambase": {
         "task": "classification",
         "source": "openml",
-        "openml_name": "spambase"
+        "openml_name": "spambase",
+        "openml_data_id": 44,
     },
     "adult": {
         "task": "classification",
         "source": "openml",
-        "openml_name": "adult"
+        "openml_name": "adult",
+        "openml_data_id": 179,
     },
     "bank_marketing": {
         "task": "classification",
         "source": "openml",
         "openml_name": "bank-marketing",
-        "drop_columns": ["duration"]
+        "drop_columns": ["duration"],
+        "openml_data_id": 1461,
     },
     "german_credit": {
         "task": "classification",
         "source": "openml",
-        "openml_name": "credit-g"
+        "openml_name": "credit-g",
+        "openml_data_id": 31,
     },
     "glass": {
         "task": "classification",
         "source": "openml",
-        "openml_name": "glass"
+        "openml_name": "glass",
+        "openml_data_id": 41,
     },
     "online_shoppers": {
         "task": "classification",
@@ -68,17 +76,20 @@ DATASETS = {
     "waveform": {
         "task": "classification",
         "source": "openml",
-        "openml_name": "waveform-5000"
+        "openml_name": "waveform-5000",
+        "openml_data_id": 60,
     },
     "vehicle": {
         "task": "classification",
         "source": "openml",
-        "openml_name": "vehicle"
+        "openml_name": "vehicle",
+        "openml_data_id": 54,
     },
     "phoneme": {
         "task": "classification",
         "source": "openml",
-        "openml_name": "phoneme"
+        "openml_name": "phoneme",
+        "openml_data_id": 1489,
     },
 
     # ==========================================
@@ -96,31 +107,36 @@ DATASETS = {
     "abalone": {
         "task": "regression",
         "source": "openml",
-        "openml_name": "abalone"
+        "openml_name": "abalone",
+        "openml_data_id": 183,
     },
     "auto_mpg": {
         "task": "regression",
         "source": "openml",
         "openml_name": "autoMpg",
         "drop_columns": ["name", "car_name"],
-        "numeric_columns": ["horsepower"]
+        "numeric_columns": ["horsepower"],
+        "openml_data_id": 196,
     },
     "concrete": {
         "task": "regression",
         "source": "openml",
-        "openml_name": "concrete_compressive_strength"
+        "openml_name": "concrete_compressive_strength",
+        "openml_data_id": 44959,
     },
     "energy_efficiency": {
         "task": "regression",
         "source": "openml",
         "openml_name": "energy_efficiency",
         "target_column": "Y1",
-        "drop_columns": ["Y2"]
+        "drop_columns": ["Y2"],
+        "openml_data_id": 43918,
     },
     "yacht": {
         "task": "regression",
         "source": "openml",
-        "openml_name": "yacht_hydrodynamics"
+        "openml_name": "yacht_hydrodynamics",
+        "openml_data_id": 42370,
     },
     "wine_quality_red": {
         "task": "regression",
@@ -130,17 +146,20 @@ DATASETS = {
     "airfoil": {
         "task": "regression",
         "source": "openml",
-        "openml_name": "airfoil_self_noise"
+        "openml_name": "airfoil_self_noise",
+        "openml_data_id": 44957,
     },
     "superconductivity": {
         "task": "regression",
         "source": "openml",
-        "openml_name": "superconductivity"
+        "openml_name": "superconductivity",
+        "openml_data_id": 44964,
     },
     "kin8nm": {
         "task": "regression",
         "source": "openml",
-        "openml_name": "kin8nm"
+        "openml_name": "kin8nm",
+        "openml_data_id": 189,
     },
     "power_plant": {
         "task": "regression",
@@ -203,16 +222,28 @@ def _load_sklearn_dataset(name):
 
     return X, y
 
-def _load_openml_dataset(openml_name, target_column=None):
+def _load_openml_dataset(
+    openml_name=None,
+    openml_data_id=None,
+    target_column=None
+):
     """
-    Retrieves a dataset from OpenML.
+    Retrieves a specific dataset version from OpenML.
     """
 
     fetch_options = {
-        "name": openml_name,
-        "version": "active",
         "as_frame": True
     }
+
+    if openml_data_id is not None:
+        fetch_options["data_id"] = openml_data_id
+    elif openml_name is not None:
+        fetch_options["name"] = openml_name
+        fetch_options["version"] = "active"
+    else:
+        raise ValueError(
+            "Należy podać openml_data_id albo openml_name."
+        )
 
     if target_column is not None:
         fetch_options["target_column"] = target_column
@@ -346,7 +377,8 @@ def load_dataset(
     elif info["source"] == "openml":
         try:
             X, y = _load_openml_dataset(
-                openml_name=info["openml_name"],
+                openml_name=info.get("openml_name"),
+                openml_data_id=info.get("openml_data_id"),
                 target_column=info.get("target_column")
             )
 

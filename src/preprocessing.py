@@ -70,12 +70,19 @@ def create_preprocessor(X_train):
     transformers = []
 
     if numeric_columns:
+        try:
+            numeric_imputer = SimpleImputer(
+                strategy="median",
+                keep_empty_features=True
+            )
+        except TypeError:
+            numeric_imputer = SimpleImputer(
+                strategy="median"
+            )
+
         numeric_pipeline = Pipeline(
             steps=[
-                (
-                    "imputer",
-                    SimpleImputer(strategy="median")
-                )
+                ("imputer", numeric_imputer)
             ]
         )
 
@@ -191,6 +198,17 @@ def preprocess_train_test(X_train, X_test):
         dtype=float
     )
 
+    if X_train_processed.shape[1] != X_test_processed.shape[1]:
+        raise ValueError(
+            "Dane treningowe i testowe mają różną liczbę cech "
+            "po preprocessingu."
+        )
+
+    if X_train_processed.shape[1] == 0:
+        raise ValueError(
+            "Po preprocessingu nie pozostała żadna cecha."
+        )
+    
     if not np.isfinite(X_train_processed).all():
         raise ValueError(
             "Po preprocessingu w danych treningowych "
