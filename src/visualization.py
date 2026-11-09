@@ -1,4 +1,4 @@
-import re
+
 from pathlib import Path
 
 import numpy as np
@@ -8,7 +8,163 @@ import seaborn as sns
 
 
 # ============================================================
-# KONFIGURACJA WYKRESÓW
+# 1. GLOBALNY STYL WIZUALIZACJI
+# ============================================================
+
+sns.set_theme(
+    style="whitegrid",
+    context="notebook",
+    font_scale=1.1,
+)
+
+# Stałe kolory dla strategii próbkowania.
+# Te same kolory są wykorzystywane na wszystkich wykresach.
+
+STRATEGY_COLORS = {
+    "S1_bootstrap": "#4477AA",
+    "S2_subsampling": "#EE7733",
+    "S3_common_core": "#228833",
+    "S4_stratified_bootstrap": "#AA3377",
+}
+
+STRATEGY_ORDER = [
+    "S1_bootstrap",
+    "S2_subsampling",
+    "S3_common_core",
+    "S4_stratified_bootstrap",
+]
+
+# Kierunek interpretacji metryk jakości.
+
+QUALITY_DIRECTIONS = {
+    "ensemble_macro_f1": "higher is better",
+    "ensemble_balanced_accuracy": "higher is better",
+    "ensemble_roc_auc": "higher is better",
+    "ensemble_rmse": "lower is better",
+    "ensemble_mae": "lower is better",
+    "ensemble_r2": "higher is better",
+}
+
+
+def _style_axis(ax):
+    """
+    Applies a consistent visual style to plot axes.
+    """
+
+    ax.set_axisbelow(True)
+
+    ax.grid(
+        axis="y",
+        linestyle="--",
+        linewidth=0.7,
+        alpha=0.35,
+    )
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    ax.spines["left"].set_alpha(0.3)
+    ax.spines["bottom"].set_alpha(0.3)
+
+    ax.tick_params(
+        axis="both",
+        labelsize=10,
+    )
+
+
+def _strategy_palette(strategies):
+    """
+    Returns colors only for strategies present in the data.
+    """
+
+    return {
+        strategy: STRATEGY_COLORS.get(
+            strategy,
+            "#999999",
+        )
+        for strategy in strategies
+    }
+
+
+def _add_boxplot(
+    data,
+    metric,
+    ax,
+    order=None,
+):
+    """
+    Draws a colored boxplot with individual observations.
+
+    The boxplot displays:
+    - median,
+    - interquartile range,
+    - mean as a white diamond,
+    - individual observations as dark points.
+    """
+
+    if order is None:
+        order = [
+            strategy
+            for strategy in STRATEGY_ORDER
+            if strategy in data["strategy"].unique()
+        ]
+
+    palette = _strategy_palette(order)
+
+    sns.boxplot(
+        data=data,
+        x="strategy",
+        y=metric,
+        order=order,
+        palette=palette,
+        width=0.6,
+        showfliers=False,
+        showmeans=True,
+        meanprops={
+            "marker": "D",
+            "markerfacecolor": "white",
+            "markeredgecolor": "#333333",
+            "markersize": 7,
+        },
+        medianprops={
+            "color": "#222222",
+            "linewidth": 2,
+        },
+        whiskerprops={
+            "linewidth": 1.3,
+        },
+        capprops={
+            "linewidth": 1.3,
+        },
+        ax=ax,
+    )
+
+    sns.stripplot(
+        data=data,
+        x="strategy",
+        y=metric,
+        order=order,
+        color="#333333",
+        alpha=0.5,
+        size=4.5,
+        jitter=0.16,
+        ax=ax,
+        zorder=2,
+    )
+
+    _style_axis(ax)
+
+    ax.set_xlabel("Sampling strategy")
+    ax.set_ylabel(_metric_label(metric))
+
+    ax.tick_params(
+        axis="x",
+        rotation=20,
+    )
+
+
+# ============================================================
+# 2. KONFIGURACJA METRYK
 # ============================================================
 
 DIVERSITY_METRICS = [
@@ -35,8 +191,6 @@ REGRESSION_METRICS = [
     "ensemble_r2",
 ]
 
-
-# Nazwy używane na osiach i w tytułach.
 METRIC_LABELS = {
     "jaccard_distance": "Jaccard distance",
     "multiplicity_distance": "Multiplicity distance",
@@ -45,7 +199,7 @@ METRIC_LABELS = {
     "target_representativeness": "Target representativeness (RY)",
     "feature_representativeness": "Feature representativeness (RX)",
     "prediction_diversity": "Prediction diversity",
-    "ensemble_macro_f1": "Macro-F1",
+    "ensemble_macro_f1": "F1-score",
     "ensemble_balanced_accuracy": "Balanced accuracy",
     "ensemble_roc_auc": "ROC-AUC",
     "ensemble_rmse": "RMSE",
@@ -55,12 +209,12 @@ METRIC_LABELS = {
 
 
 # ============================================================
-# 1. FUNKCJE POMOCNICZE
+# 3. FUNKCJE POMOCNICZE
 # ============================================================
 
 def _get_config_column(results):
     """
-    Identifies the column that specifies the sampling variant.
+    Identifies the column specifying the sampling configuration.
 
     Supports both sampling_config and variant.
     """
@@ -89,10 +243,10 @@ def _get_variant_name(config):
 
 def _prepare_results(results):
     """
-    Prepares results for visualization.
+    Prepares experimental results for visualization.
 
-    If the data contains multiple folds, it calculates the averages
-    for each combination of dataset, task, and configuration.
+    If fold-level results are provided, calculates averages
+    for each dataset, task, and sampling configuration.
     """
 
     if results.empty:
@@ -113,7 +267,6 @@ def _prepare_results(results):
             f"Brakuje wymaganych kolumn: {sorted(missing)}"
         )
 
-    # Jeśli wyniki zawierają foldy, agregujemy je.
     if "fold" in results.columns:
 
         numeric_columns = results.select_dtypes(
@@ -134,9 +287,10 @@ def _prepare_results(results):
 
         prepared = (
             results
-            .groupby(grouping_columns, dropna=False)[
-                numeric_columns
-            ]
+            .groupby(
+                grouping_columns,
+                dropna=False,
+            )[numeric_columns]
             .mean()
             .reset_index()
         )
@@ -153,10 +307,11 @@ def _prepare_results(results):
 
 def _save_figure(fig, output_path):
     """
-    Saves the figure at a high resolution and closes it.
+    Saves a figure at high resolution and closes it.
     """
 
     output_path = Path(output_path)
+
     output_path.parent.mkdir(
         parents=True,
         exist_ok=True,
@@ -166,6 +321,7 @@ def _save_figure(fig, output_path):
         output_path,
         dpi=300,
         bbox_inches="tight",
+        facecolor="white",
     )
 
     plt.close(fig)
@@ -173,7 +329,7 @@ def _save_figure(fig, output_path):
 
 def _metric_label(metric):
     """
-    Returns a readable name for the metric.
+    Returns a readable metric name.
     """
 
     return METRIC_LABELS.get(
@@ -184,17 +340,29 @@ def _metric_label(metric):
 
 def _available_metrics(results, metrics):
     """
-    Returns only those metrics that appear in the table.
+    Returns metrics that are available in the results table.
     """
 
     return [
-        metric for metric in metrics
+        metric
+        for metric in metrics
         if metric in results.columns
     ]
 
 
+def _quality_direction(metric):
+    """
+    Returns the preferred direction for a quality metric.
+    """
+
+    return QUALITY_DIRECTIONS.get(
+        metric,
+        "",
+    )
+
+
 # ============================================================
-# 2. WYKRESY RÓŻNORODNOŚCI PRÓBEK
+# 4. WYKRESY RÓŻNORODNOŚCI PRÓBEK
 # ============================================================
 
 def plot_sample_diversity(
@@ -202,12 +370,8 @@ def plot_sample_diversity(
     output_dir="figures",
 ):
     """
-    Creates plots of sample diversity metrics
-    depending on the sampling variant.
-
-    Results are displayed as boxplots,
-    since each variant may have results
-    from multiple datasets.
+    Creates boxplots of sample diversity metrics
+    for different sampling strategies.
     """
 
     output_dir = Path(output_dir) / "diversity"
@@ -227,30 +391,21 @@ def plot_sample_diversity(
         if data.empty:
             continue
 
-        fig, ax = plt.subplots(figsize=(11, 6))
+        fig, ax = plt.subplots(
+            figsize=(11, 6),
+        )
 
-        sns.boxplot(
+        _add_boxplot(
             data=data,
-            x="strategy",
-            y=metric,
+            metric=metric,
             ax=ax,
         )
 
         ax.set_title(
-            f"Sample diversity: {_metric_label(metric)}"
-        )
-
-        ax.set_xlabel("Sampling strategy")
-        ax.set_ylabel(_metric_label(metric))
-
-        ax.tick_params(
-            axis="x",
-            rotation=25,
-        )
-
-        ax.grid(
-            axis="y",
-            alpha=0.3,
+            f"Sample diversity: {_metric_label(metric)}",
+            fontsize=14,
+            fontweight="bold",
+            pad=15,
         )
 
         fig.tight_layout()
@@ -262,7 +417,7 @@ def plot_sample_diversity(
 
 
 # ============================================================
-# 3. WYKRESY REPREZENTATYWNOŚCI PRÓBEK
+# 5. WYKRESY REPREZENTATYWNOŚCI PRÓBEK
 # ============================================================
 
 def plot_representativeness(
@@ -270,8 +425,7 @@ def plot_representativeness(
     output_dir="figures",
 ):
     """
-    Creates plots of sample representativeness metrics
-    depending on the sampling variant.
+    Creates boxplots of sample representativeness metrics.
     """
 
     output_dir = Path(output_dir) / "representativeness"
@@ -291,30 +445,21 @@ def plot_representativeness(
         if data.empty:
             continue
 
-        fig, ax = plt.subplots(figsize=(11, 6))
+        fig, ax = plt.subplots(
+            figsize=(11, 6),
+        )
 
-        sns.boxplot(
+        _add_boxplot(
             data=data,
-            x="strategy",
-            y=metric,
+            metric=metric,
             ax=ax,
         )
 
         ax.set_title(
-            f"Sample representativeness: {_metric_label(metric)}"
-        )
-
-        ax.set_xlabel("Sampling strategy")
-        ax.set_ylabel(_metric_label(metric))
-
-        ax.tick_params(
-            axis="x",
-            rotation=25,
-        )
-
-        ax.grid(
-            axis="y",
-            alpha=0.3,
+            f"Sample representativeness: {_metric_label(metric)}",
+            fontsize=14,
+            fontweight="bold",
+            pad=15,
         )
 
         fig.tight_layout()
@@ -326,7 +471,7 @@ def plot_representativeness(
 
 
 # ============================================================
-# 4. WYKRESY JAKOŚCI KLASYFIKACJI I REGRESJI
+# 6. WYKRESY JAKOŚCI KLASYFIKACJI I REGRESJI
 # ============================================================
 
 def plot_model_quality(
@@ -334,8 +479,8 @@ def plot_model_quality(
     output_dir="figures",
 ):
     """
-    Creates separate plots of ensemble quality
-    for classification and regression.
+    Creates separate quality plots for classification
+    and regression.
     """
 
     output_dir = Path(output_dir) / "quality"
@@ -369,30 +514,31 @@ def plot_model_quality(
             if data.empty:
                 continue
 
-            fig, ax = plt.subplots(figsize=(11, 6))
+            fig, ax = plt.subplots(
+                figsize=(11, 6),
+            )
 
-            sns.boxplot(
+            _add_boxplot(
                 data=data,
-                x="strategy",
-                y=metric,
+                metric=metric,
                 ax=ax,
             )
 
+            direction = _quality_direction(metric)
+
+            title = (
+                f"{task.capitalize()} performance: "
+                f"{_metric_label(metric)}"
+            )
+
+            if direction:
+                title += f" ({direction})"
+
             ax.set_title(
-                f"{task.capitalize()} - {_metric_label(metric)}"
-            )
-
-            ax.set_xlabel("Sampling strategy")
-            ax.set_ylabel(_metric_label(metric))
-
-            ax.tick_params(
-                axis="x",
-                rotation=25,
-            )
-
-            ax.grid(
-                axis="y",
-                alpha=0.3,
+                title,
+                fontsize=14,
+                fontweight="bold",
+                pad=15,
             )
 
             fig.tight_layout()
@@ -404,7 +550,7 @@ def plot_model_quality(
 
 
 # ============================================================
-# 5. ZALEŻNOŚĆ RÓŻNORODNOŚCI OD JAKOŚCI
+# 7. ZALEŻNOŚĆ RÓŻNORODNOŚCI OD JAKOŚCI
 # ============================================================
 
 def plot_diversity_quality_relationship(
@@ -415,17 +561,16 @@ def plot_diversity_quality_relationship(
     Creates scatter plots showing the relationship
     between sample diversity and ensemble quality.
 
-    For classification, uses F1-score.
-    For regression, uses RMSE.
+    Classification:
+        Macro-F1 is used as the quality metric.
 
-    Each point represents one combination
-    of dataset and sampling variant.
+    Regression:
+        RMSE is used as the quality metric.
+
+    Each point represents one dataset and sampling configuration.
     """
 
-    output_dir = (
-        Path(output_dir) / "diversity_quality"
-    )
-
+    output_dir = Path(output_dir) / "diversity_quality"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     diversity_metrics = (
@@ -464,20 +609,40 @@ def plot_diversity_quality_relationship(
             if len(data) < 2:
                 continue
 
-            fig, ax = plt.subplots(figsize=(9, 6))
+            fig, ax = plt.subplots(
+                figsize=(9, 6),
+            )
+
+            strategies = [
+                strategy
+                for strategy in STRATEGY_ORDER
+                if strategy in data["strategy"].unique()
+            ]
 
             sns.scatterplot(
                 data=data,
                 x=diversity_metric,
                 y=quality_metric,
                 hue="strategy",
+                style="strategy",
+                hue_order=strategies,
+                palette=_strategy_palette(strategies),
+                s=100,
+                alpha=0.85,
+                edgecolor="white",
+                linewidth=0.8,
                 ax=ax,
             )
+
+            _style_axis(ax)
 
             ax.set_title(
                 f"{task.capitalize()}: "
                 f"{_metric_label(diversity_metric)} "
-                f"vs {_metric_label(quality_metric)}"
+                f"vs {_metric_label(quality_metric)}",
+                fontsize=13,
+                fontweight="bold",
+                pad=15,
             )
 
             ax.set_xlabel(
@@ -488,11 +653,11 @@ def plot_diversity_quality_relationship(
                 _metric_label(quality_metric)
             )
 
-            ax.grid(alpha=0.3)
             ax.legend(
                 title="Sampling strategy",
                 bbox_to_anchor=(1.02, 1),
                 loc="upper left",
+                frameon=True,
             )
 
             fig.tight_layout()
@@ -505,7 +670,7 @@ def plot_diversity_quality_relationship(
 
 
 # ============================================================
-# 6. PORÓWNANIE STRATEGII PRÓBKOWANIA
+# 8. PORÓWNANIE STRATEGII PRÓBKOWANIA
 # ============================================================
 
 def plot_strategy_comparison(
@@ -513,11 +678,10 @@ def plot_strategy_comparison(
     output_dir="figures",
 ):
     """
-    It compares four main sampling strategies:
-    S1, S2, S3, and S4.
+    Compares sampling strategies using boxplots.
 
-    The charts show the distribution of results for the individual
-    variants belonging to a given strategy.
+    The plots show the distribution of results
+    for individual configurations within each strategy.
     """
 
     output_dir = Path(output_dir) / "strategies"
@@ -527,6 +691,8 @@ def plot_strategy_comparison(
         CLASSIFICATION_METRICS
         + REGRESSION_METRICS
         + DIVERSITY_METRICS
+        + REPRESENTATIVENESS_METRICS
+        + ["prediction_diversity"]
     )
 
     for metric in metrics:
@@ -550,32 +716,23 @@ def plot_strategy_comparison(
             if task_data.empty:
                 continue
 
-            fig, ax = plt.subplots(figsize=(10, 6))
+            fig, ax = plt.subplots(
+                figsize=(10, 6),
+            )
 
-            sns.boxplot(
+            _add_boxplot(
                 data=task_data,
-                x="strategy",
-                y=metric,
+                metric=metric,
                 ax=ax,
             )
 
             ax.set_title(
                 f"{task.capitalize()} - "
-                f"Comparison of sampling strategies: "
-                f"{_metric_label(metric)}"
-            )
-
-            ax.set_xlabel("Sampling strategy")
-            ax.set_ylabel(_metric_label(metric))
-
-            ax.tick_params(
-                axis="x",
-                rotation=25,
-            )
-
-            ax.grid(
-                axis="y",
-                alpha=0.3,
+                f"Sampling strategy comparison: "
+                f"{_metric_label(metric)}",
+                fontsize=13,
+                fontweight="bold",
+                pad=15,
             )
 
             fig.tight_layout()
@@ -587,7 +744,179 @@ def plot_strategy_comparison(
 
 
 # ============================================================
-# 7. HEATMAPA KORELACJI SPEARMANA
+# 9. ŚREDNIA JAKOŚĆ STRATEGII - WYKRESY SŁUPKOWE
+# ============================================================
+
+def plot_strategy_mean_quality(
+    results,
+    output_dir="figures",
+):
+    """
+    Creates barplots comparing the mean ensemble quality
+    of sampling strategies across datasets.
+
+    First, configurations belonging to the same strategy
+    are averaged within each dataset.
+
+    Then, the mean and standard deviation are calculated
+    across datasets.
+
+    Each dataset therefore has equal weight,
+    regardless of the number of configurations.
+    """
+
+    output_dir = Path(output_dir) / "mean_quality"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    task_metrics = {
+        "classification": CLASSIFICATION_METRICS,
+        "regression": REGRESSION_METRICS,
+    }
+
+    for task, metrics in task_metrics.items():
+
+        task_data = results[
+            results["task"] == task
+        ].copy()
+
+        if task_data.empty:
+            continue
+
+        available = _available_metrics(
+            task_data,
+            metrics,
+        )
+
+        for metric in available:
+
+            data = task_data[
+                ["dataset", "strategy", metric]
+            ].dropna()
+
+            if data.empty:
+                continue
+
+            # Najpierw uśredniamy warianty strategii
+            # w obrębie każdego zbioru danych.
+
+            dataset_means = (
+                data
+                .groupby(
+                    ["dataset", "strategy"],
+                    as_index=False,
+                )[metric]
+                .mean()
+            )
+
+            # Następnie obliczamy średnią i odchylenie
+            # standardowe pomiędzy zbiorami danych.
+
+            summary = (
+                dataset_means
+                .groupby("strategy")[metric]
+                .agg(["mean", "std", "count"])
+                .reindex(STRATEGY_ORDER)
+                .dropna(subset=["mean"])
+            )
+
+            if summary.empty:
+                continue
+
+            strategies = summary.index.tolist()
+
+            colors = [
+                STRATEGY_COLORS.get(
+                    strategy,
+                    "#999999",
+                )
+                for strategy in strategies
+            ]
+
+            means = summary["mean"].to_numpy()
+
+            # Dla jednego zbioru danych odchylenie standardowe
+            # nie jest określone, dlatego pokazujemy słupki bez błędu.
+
+            errors = (
+                summary["std"]
+                .fillna(0)
+                .to_numpy()
+            )
+
+            fig, ax = plt.subplots(
+                figsize=(10, 6),
+            )
+
+            bars = ax.bar(
+                strategies,
+                means,
+                color=colors,
+                width=0.65,
+                edgecolor="white",
+                linewidth=1.2,
+                yerr=errors,
+                capsize=5,
+                error_kw={
+                    "elinewidth": 1.3,
+                    "capthick": 1.3,
+                },
+            )
+
+            _style_axis(ax)
+
+            # Wartości średnie nad słupkami.
+
+            for bar, value in zip(bars, means):
+
+                ax.annotate(
+                    f"{value:.3f}",
+                    xy=(
+                        bar.get_x() + bar.get_width() / 2,
+                        bar.get_height(),
+                    ),
+                    xytext=(0, 6),
+                    textcoords="offset points",
+                    ha="center",
+                    va="bottom",
+                    fontsize=9,
+                    fontweight="bold",
+                )
+
+            direction = _quality_direction(metric)
+
+            title = (
+                f"Mean {task} performance: "
+                f"{_metric_label(metric)}"
+            )
+
+            if direction:
+                title += f" ({direction})"
+
+            ax.set_title(
+                title,
+                fontsize=13,
+                fontweight="bold",
+                pad=15,
+            )
+
+            ax.set_xlabel("Sampling strategy")
+            ax.set_ylabel(_metric_label(metric))
+
+            ax.tick_params(
+                axis="x",
+                rotation=20,
+            )
+
+            fig.tight_layout()
+
+            _save_figure(
+                fig,
+                output_dir / f"{task}_{metric}_mean.png",
+            )
+
+
+# ============================================================
+# 10. HEATMAPA KORELACJI SPEARMANA
 # ============================================================
 
 def plot_spearman_heatmap(
@@ -595,10 +924,12 @@ def plot_spearman_heatmap(
     output_dir="figures",
 ):
     """
-    Creates a heatmap of mean Spearman correlations.
+    Creates heatmaps of mean Spearman correlations.
 
-    First, it averages the rho coefficients for datasets
+    Correlations are averaged across datasets
     belonging to the same task.
+
+    The color scale ranges from -1 to 1.
     """
 
     if correlations is None or correlations.empty:
@@ -624,7 +955,7 @@ def plot_spearman_heatmap(
         )
         return
 
-    for task in correlations["task"].unique():
+    for task in correlations["task"].dropna().unique():
 
         task_data = correlations[
             correlations["task"] == task
@@ -640,7 +971,9 @@ def plot_spearman_heatmap(
         if pivot.empty:
             continue
 
-        fig, ax = plt.subplots(figsize=(10, 7))
+        fig, ax = plt.subplots(
+            figsize=(10, 7),
+        )
 
         sns.heatmap(
             pivot,
@@ -649,17 +982,34 @@ def plot_spearman_heatmap(
             center=0,
             vmin=-1,
             vmax=1,
-            cmap="coolwarm",
-            linewidths=0.5,
+            cmap="RdYlBu_r",
+            linewidths=0.7,
+            linecolor="white",
+            cbar_kws={
+                "label": "Spearman correlation (rho)",
+            },
             ax=ax,
         )
 
         ax.set_title(
-            f"Mean Spearman correlations - {task}"
+            f"Mean Spearman correlations - {task}",
+            fontsize=14,
+            fontweight="bold",
+            pad=15,
         )
 
         ax.set_xlabel("Ensemble quality metric")
         ax.set_ylabel("Diversity metric")
+
+        ax.tick_params(
+            axis="x",
+            rotation=20,
+        )
+
+        ax.tick_params(
+            axis="y",
+            rotation=0,
+        )
 
         fig.tight_layout()
 
@@ -670,7 +1020,7 @@ def plot_spearman_heatmap(
 
 
 # ============================================================
-# 8. GŁÓWNA FUNKCJA WIZUALIZACJI
+# 11. GŁÓWNA FUNKCJA WIZUALIZACJI
 # ============================================================
 
 def run_visualizations(
@@ -679,7 +1029,7 @@ def run_visualizations(
     output_dir="figures",
 ):
     """
-    Generates all project plots.
+    Generates all project visualizations.
 
     Parameters
     ----------
@@ -688,21 +1038,25 @@ def run_visualizations(
         or already aggregated results.
 
     statistical_results : dict, optional
-        A dictionary returned by `run_statistical_analysis`.
+        Dictionary returned by run_statistical_analysis.
         If provided, a Spearman correlation heatmap
         will also be generated.
 
     output_dir : str
-        Directory where the plots will be saved.
+        Directory where figures will be saved.
 
     Returns
     -------
     pandas.DataFrame
-        Prepared, aggregated results.
+        Prepared and aggregated results.
     """
 
     output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
+
+    output_path.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     prepared, config_column = _prepare_results(
         results
@@ -720,32 +1074,62 @@ def run_visualizations(
         f"Kolumna konfiguracji: {config_column}"
     )
 
+    print(
+        "Liczba zbiorów danych: "
+        f"{prepared['dataset'].nunique()}"
+    )
+
+    print(
+        "Liczba strategii: "
+        f"{prepared['strategy'].nunique()}"
+    )
+
+    # 1. Różnorodność próbek
+
     plot_sample_diversity(
         prepared,
         output_dir=output_path,
     )
+
+    # 2. Reprezentatywność próbek
 
     plot_representativeness(
         prepared,
         output_dir=output_path,
     )
 
+    # 3. Jakość modeli
+
     plot_model_quality(
         prepared,
         output_dir=output_path,
     )
+
+    # 4. Zależność różnorodności od jakości
 
     plot_diversity_quality_relationship(
         prepared,
         output_dir=output_path,
     )
 
+    # 5. Porównanie strategii
+
     plot_strategy_comparison(
         prepared,
         output_dir=output_path,
     )
 
+    # 6. Średnia jakość strategii pomiędzy zbiorami danych
+
+    plot_strategy_mean_quality(
+        prepared,
+        output_dir=output_path,
+    )
+
+    # 7. Heatmapa korelacji Spearmana
+
     if statistical_results is not None:
+
         correlations = statistical_results.get(
             "spearman_by_dataset"
         )
@@ -756,6 +1140,9 @@ def run_visualizations(
         )
 
     print("\nZakończono generowanie wykresów.")
-    print(f"Wykresy zapisano w katalogu: {output_path}")
+
+    print(
+        f"Wykresy zapisano w katalogu: {output_path}"
+    )
 
     return prepared
