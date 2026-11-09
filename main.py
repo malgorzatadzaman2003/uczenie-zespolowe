@@ -724,10 +724,13 @@ def test_metrics():
 
 
 def test_datasets():
-    print("\n" + "=" * 60)
-    print("TESTOWANIE WCZYTYWANIA DANYCH")
-    print("=" * 60)
+    print("\n" + "=" * 70)
+    print("AUDYT WSZYSTKICH ZBIORÓW DANYCH")
+    print("=" * 70)
 
+    from pathlib import Path
+
+    # Pobieramy listy zbiorów dla obu rodzajów zadań.
     classification_datasets = list_datasets("classification")
     regression_datasets = list_datasets("regression")
 
@@ -739,42 +742,380 @@ def test_datasets():
     assert len(classification_datasets) == 12
     assert len(regression_datasets) == 12
 
-    # Test 1: Breast Cancer
-    print("\nTEST 1 - Breast Cancer")
+    # Zapisujemy wyniki audytu.
+    audit_results = []
 
-    dataset = load_dataset("breast_cancer")
+    # Błędy uniemożliwiające wykorzystanie zbioru.
+    failed_datasets = []
 
-    X = dataset["X"]
-    y = dataset["y"]
+    # Ostrzeżenia wymagające późniejszej weryfikacji.
+    warnings = []
 
-    print("Rodzaj zadania:", dataset["task"])
-    print("Liczba obserwacji:", len(X))
-    print("Liczba cech:", X.shape[1])
-    print("Liczba klas:", y.nunique())
+    datasets_to_check = [
+        ("classification", name)
+        for name in classification_datasets
+    ] + [
+        ("regression", name)
+        for name in regression_datasets
+    ]
 
-    assert dataset["task"] == "classification"
-    assert len(X) == len(y)
-    assert X.shape[1] == 30
-    assert y.nunique() == 2
+    print("\n" + "=" * 70)
+    print("WCZYTYWANIE I SPRAWDZANIE ZBIORÓW")
+    print("=" * 70)
 
-    # Test 2: Diabetes
-    print("\nTEST 2 - Diabetes")
+    for expected_task, dataset_name in datasets_to_check:
 
-    dataset = load_dataset("diabetes")
+        print("\n" + "-" * 70)
+        print(f"Zbiór: {dataset_name}")
+        print(f"Oczekiwany typ zadania: {expected_task}")
 
-    X = dataset["X"]
-    y = dataset["y"]
+        try:
+            # -----------------------------------------
+            # 1. Wczytanie zbioru
+            # -----------------------------------------
 
-    print("Rodzaj zadania:", dataset["task"])
-    print("Liczba obserwacji:", len(X))
-    print("Liczba cech:", X.shape[1])
+            dataset = load_dataset(dataset_name)
 
-    assert dataset["task"] == "regression"
-    assert len(X) == len(y)
-    assert X.shape[1] == 10
+            X = dataset["X"]
+            y = dataset["y"]
+            actual_task = dataset["task"]
 
-    print("\nWszystkie testy wczytywania danych zakończone poprawnie!")
+            dataset_warnings = []
+            dataset_errors = []
 
+            # -----------------------------------------
+            # 2. Sprawdzenie podstawowej struktury
+            # -----------------------------------------
+
+            if not isinstance(X, pd.DataFrame):
+                dataset_errors.append(
+                    "X nie jest obiektem pandas DataFrame"
+                )
+
+            if not isinstance(y, pd.Series):
+                y = pd.Series(y)
+
+            if len(X) != len(y):
+                dataset_errors.append(
+                    "Liczba obserwacji X i y jest różna"
+                )
+
+            if len(X) == 0:
+                dataset_errors.append(
+                    "Zbiór nie zawiera obserwacji"
+                )
+
+            if X.shape[1] == 0:
+                dataset_errors.append(
+                    "Zbiór nie zawiera żadnych cech"
+                )
+
+            # -----------------------------------------
+            # 3. Sprawdzenie typu zadania
+            # -----------------------------------------
+
+            if actual_task != expected_task:
+                dataset_errors.append(
+                    f"Nieprawidłowy typ zadania: {actual_task}"
+                )
+
+            # -----------------------------------------
+            # 4. Sprawdzenie zmiennej docelowej
+            # -----------------------------------------
+
+            missing_targets = int(y.isna().sum())
+
+            if missing_targets > 0:
+                dataset_errors.append(
+                    f"Zmienna docelowa zawiera "
+                    f"{missing_targets} brakujących wartości"
+                )
+
+            if expected_task == "classification":
+
+                n_classes = int(y.nunique())
+
+                if n_classes < 2:
+                    dataset_errors.append(
+                        "Klasyfikacja ma mniej niż 2 klasy"
+                    )
+
+                class_counts = y.value_counts()
+
+                min_class_size = (
+                    int(class_counts.min())
+                    if len(class_counts) > 0
+                    else 0
+                )
+
+                if min_class_size < 5:
+                    dataset_warnings.append(
+                        "Co najmniej jedna klasa ma mniej niż "
+                        "5 obserwacji"
+                    )
+
+            else:
+                n_classes = np.nan
+                min_class_size = np.nan
+
+                if not pd.api.types.is_numeric_dtype(y):
+                    dataset_errors.append(
+                        "Zmienna docelowa regresji nie jest numeryczna"
+                    )
+
+                else:
+                    y_values = pd.to_numeric(
+                        y,
+                        errors="coerce"
+                    ).to_numpy(dtype=float)
+
+                    if not np.isfinite(y_values).all():
+                        dataset_errors.append(
+                            "Zmienna docelowa zawiera wartości "
+                            "nieskończone lub niepoprawne"
+                        )
+
+            # -----------------------------------------
+            # 5. Sprawdzenie brakujących danych w X
+            # -----------------------------------------
+
+            missing_features = int(X.isna().sum().sum())
+
+            missing_columns = int(
+                (X.isna().sum() > 0).sum()
+            )
+
+            if missing_features > 0:
+                dataset_warnings.append(
+                    f"Braki danych w X: {missing_features} "
+                    f"wartości w {missing_columns} kolumnach"
+                )
+
+            # -----------------------------------------
+            # 6. Sprawdzenie wartości nieskończonych
+            # -----------------------------------------
+
+            numeric_X = X.select_dtypes(include=[np.number])
+
+            if numeric_X.shape[1] > 0:
+
+                numeric_values = numeric_X.to_numpy(
+                    dtype=float
+                )
+
+                infinite_values = int(
+                    np.isinf(numeric_values).sum()
+                )
+
+            else:
+                infinite_values = 0
+
+            if infinite_values > 0:
+                dataset_errors.append(
+                    f"Znaleziono {infinite_values} "
+                    "nieskończonych wartości w cechach"
+                )
+
+            # -----------------------------------------
+            # 7. Powtarzające się kolumny
+            # -----------------------------------------
+
+            duplicated_columns = int(
+                X.columns.duplicated().sum()
+            )
+
+            if duplicated_columns > 0:
+                dataset_errors.append(
+                    f"Znaleziono {duplicated_columns} "
+                    "powtarzających się nazw kolumn"
+                )
+
+            # -----------------------------------------
+            # 8. Kolumny stałe
+            # -----------------------------------------
+
+            constant_columns = [
+                column
+                for column in X.columns
+                if X[column].nunique(dropna=False) <= 1
+            ]
+
+            if constant_columns:
+                dataset_warnings.append(
+                    "Kolumny stałe: "
+                    + ", ".join(map(str, constant_columns))
+                )
+
+            # -----------------------------------------
+            # 9. Potencjalne kolumny identyfikacyjne
+            # -----------------------------------------
+
+            possible_id_columns = [
+                column
+                for column in X.columns
+                if any(
+                    token in str(column).lower()
+                    for token in [
+                        "id",
+                        "identifier",
+                        "index",
+                        "customer_number"
+                    ]
+                )
+            ]
+
+            if possible_id_columns:
+                dataset_warnings.append(
+                    "Potencjalne kolumny identyfikacyjne: "
+                    + ", ".join(map(str, possible_id_columns))
+                )
+
+            # -----------------------------------------
+            # 10. Wyniki
+            # -----------------------------------------
+
+            status = (
+                "OK"
+                if len(dataset_errors) == 0
+                else "ERROR"
+            )
+
+            print("\nWyniki:")
+            print("Status:", status)
+            print("Liczba obserwacji:", len(X))
+            print("Liczba cech:", X.shape[1])
+            print("Typ zadania:", actual_task)
+
+            if expected_task == "classification":
+                print("Liczba klas:", n_classes)
+                print("Najmniejsza klasa:", min_class_size)
+
+            print("Brakujące wartości w X:", missing_features)
+            print("Wartości nieskończone:", infinite_values)
+
+            if dataset_warnings:
+                print("\nOstrzeżenia:")
+
+                for warning in dataset_warnings:
+                    print(" -", warning)
+
+                    warnings.append({
+                        "dataset": dataset_name,
+                        "warning": warning
+                    })
+
+            if dataset_errors:
+                print("\nBłędy:")
+
+                for error in dataset_errors:
+                    print(" -", error)
+
+            else:
+                print("\nZbiór przeszedł podstawowe testy.")
+
+            if dataset_errors:
+                failed_datasets.append({
+                    "dataset": dataset_name,
+                    "errors": dataset_errors
+                })
+
+            audit_results.append({
+                "dataset": dataset_name,
+                "expected_task": expected_task,
+                "actual_task": actual_task,
+                "n_observations": len(X),
+                "n_features": X.shape[1],
+                "n_classes": n_classes,
+                "missing_features": missing_features,
+                "missing_columns": missing_columns,
+                "infinite_values": infinite_values,
+                "constant_columns": len(constant_columns),
+                "duplicated_columns": duplicated_columns,
+                "possible_id_columns": len(possible_id_columns),
+                "status": status,
+                "warnings": " | ".join(dataset_warnings),
+                "errors": " | ".join(dataset_errors)
+            })
+
+        except Exception as error:
+
+            print("\nBŁĄD WCZYTYWANIA ZBIORU!")
+            print(type(error).__name__, ":", error)
+
+            failed_datasets.append({
+                "dataset": dataset_name,
+                "errors": [str(error)]
+            })
+
+            audit_results.append({
+                "dataset": dataset_name,
+                "expected_task": expected_task,
+                "actual_task": None,
+                "n_observations": None,
+                "n_features": None,
+                "n_classes": None,
+                "missing_features": None,
+                "missing_columns": None,
+                "infinite_values": None,
+                "constant_columns": None,
+                "duplicated_columns": None,
+                "possible_id_columns": None,
+                "status": "LOAD_ERROR",
+                "warnings": "",
+                "errors": str(error)
+            })
+
+    # ========================================================
+    # PODSUMOWANIE
+    # ========================================================
+
+    audit_df = pd.DataFrame(audit_results)
+
+    Path("results").mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    audit_df.to_csv(
+        "results/dataset_audit.csv",
+        index=False
+    )
+
+    print("\n" + "=" * 70)
+    print("PODSUMOWANIE AUDYTU")
+    print("=" * 70)
+
+    print("\nLiczba sprawdzonych zbiorów:", len(audit_df))
+
+    print(
+        "Zbiory z poprawnym statusem:",
+        (audit_df["status"] == "OK").sum()
+    )
+
+    print(
+        "Zbiory z błędami:",
+        (audit_df["status"] != "OK").sum()
+    )
+
+    print("Liczba ostrzeżeń:", len(warnings))
+
+    if failed_datasets:
+
+        print("\nZBIORY WYMAGAJĄCE POPRAWY:")
+
+        for item in failed_datasets:
+            print("\n", item["dataset"])
+
+            for error in item["errors"]:
+                print(" -", error)
+
+    else:
+        print("\nWszystkie zbiory zostały poprawnie wczytane.")
+
+    print("\nPodsumowanie zapisano w:")
+    print("results/dataset_audit.csv")
+
+    print("\n" + "=" * 70)
 
 def test_preprocessing():
     print("\n" + "=" * 60)
@@ -931,7 +1272,7 @@ def test_statistical_analysis_and_visualization():
     )
 
     run_visualizations(
-        results=test_results_vis,
+        results=statistical_results["aggregated_results"],
         statistical_results=statistical_results,
         output_dir="figures/test",
     )

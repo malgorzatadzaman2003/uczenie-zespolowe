@@ -4,10 +4,12 @@ import pandas as pd
 from sklearn.datasets import (
     load_breast_cancer,
     load_diabetes,
-    fetch_california_housing
+    fetch_california_housing,
+    fetch_openml
 )
-from sklearn.datasets import fetch_openml
 from sklearn.model_selection import train_test_split
+
+from ucimlrepo import fetch_ucirepo
 
 
 # Nazwy zbiorów i rodzaje zadań.
@@ -60,8 +62,8 @@ DATASETS = {
     },
     "online_shoppers": {
         "task": "classification",
-        "source": "openml",
-        "openml_name": "Online Shoppers Purchasing Intention"
+        "source": "uci",
+        "uci_id": 468
     },
     "waveform": {
         "task": "classification",
@@ -100,7 +102,8 @@ DATASETS = {
         "task": "regression",
         "source": "openml",
         "openml_name": "autoMpg",
-        "drop_columns": ["name", "car_name"]
+        "drop_columns": ["name", "car_name"],
+        "numeric_columns": ["horsepower"]
     },
     "concrete": {
         "task": "regression",
@@ -110,7 +113,9 @@ DATASETS = {
     "energy_efficiency": {
         "task": "regression",
         "source": "openml",
-        "openml_name": "energy_efficiency"
+        "openml_name": "energy_efficiency",
+        "target_column": "Y1",
+        "drop_columns": ["Y2"]
     },
     "yacht": {
         "task": "regression",
@@ -139,8 +144,8 @@ DATASETS = {
     },
     "power_plant": {
         "task": "regression",
-        "source": "openml",
-        "openml_name": "combined-cycle-power-plant"
+        "source": "uci",
+        "uci_id": 294
     }
 }
 
@@ -198,25 +203,60 @@ def _load_sklearn_dataset(name):
 
     return X, y
 
-
-def _load_openml_dataset(openml_name):
+def _load_openml_dataset(openml_name, target_column=None):
     """
     Retrieves a dataset from OpenML.
-
-    The data is returned as a pandas DataFrame and Series.
     """
 
-    dataset = fetch_openml(
-        name=openml_name,
-        version="active",
-        as_frame=True
-    )
+    fetch_options = {
+        "name": openml_name,
+        "version": "active",
+        "as_frame": True
+    }
+
+    if target_column is not None:
+        fetch_options["target_column"] = target_column
+
+    dataset = fetch_openml(**fetch_options)
 
     X = dataset.data.copy()
     y = dataset.target.copy()
 
     return X, y
 
+def _load_uci_dataset(uci_id):
+    """
+    Retrieves a dataset from the UCI Machine Learning Repository.
+
+    Parameters:
+        uci_id: Numerical UCI dataset identifier.
+
+    Returns:
+        X: Feature DataFrame.
+        y: Target Series.
+    """
+
+    dataset = fetch_ucirepo(id=uci_id)
+
+    X = dataset.data.features.copy()
+    y = dataset.data.targets.copy()
+
+    # UCI może zwrócić target jako DataFrame.
+    if isinstance(y, pd.DataFrame):
+
+        if y.shape[1] != 1:
+            raise ValueError(
+                f"Zbiór UCI {uci_id} zawiera "
+                f"{y.shape[1]} zmiennych docelowych. "
+                "Oczekiwano jednej."
+            )
+
+        y = y.iloc[:, 0]
+
+    y = pd.Series(y).reset_index(drop=True)
+    X = pd.DataFrame(X).reset_index(drop=True)
+
+    return X, y
 
 def _limit_dataset_size(
     X,
@@ -305,11 +345,27 @@ def load_dataset(
 
     elif info["source"] == "openml":
         try:
-            X, y = _load_openml_dataset(info["openml_name"])
+            X, y = _load_openml_dataset(
+                openml_name=info["openml_name"],
+                target_column=info.get("target_column")
+            )
+
         except Exception as error:
             raise RuntimeError(
                 f"Nie udało się pobrać zbioru '{name}' "
                 f"z OpenML. Szczegóły: {error}"
+            ) from error
+
+    elif info["source"] == "uci":
+        try:
+            X, y = _load_uci_dataset(
+                uci_id=info["uci_id"]
+            )
+
+        except Exception as error:
+            raise RuntimeError(
+                f"Nie udało się pobrać zbioru '{name}' "
+                f"z UCI. Szczegóły: {error}"
             ) from error
 
     else:
@@ -319,6 +375,18 @@ def load_dataset(
 
     # Upewniamy się, że dane mają spójny format.
     X = pd.DataFrame(X).copy()
+
+    if isinstance(y, pd.DataFrame):
+
+        if y.shape[1] != 1:
+            raise ValueError(
+                f"Zbiór '{name}' zawiera "
+                f"{y.shape[1]} kolumn docelowych. "
+                "Oczekiwano jednej."
+            )
+
+        y = y.iloc[:, 0]
+
     y = pd.Series(y).copy()
 
     # Usuwamy kolumny, które zgodnie z planem nie powinny
@@ -335,6 +403,27 @@ def load_dataset(
 
     if columns_to_drop:
         X = X.drop(columns=columns_to_drop)
+
+    # Konwersja wskazanych kolumn na typ numeryczny.
+    numeric_columns = info.get("numeric_columns", [])
+
+    for column in numeric_columns:
+
+        matching_columns = [
+            existing_column
+            for existing_column in X.columns
+            if str(existing_column).lower() == column.lower()
+        ]
+
+        for existing_column in matching_columns:
+
+            X[existing_column] = pd.to_numeric(
+                X[existing_column].replace(
+                    ["?", "", "NA", "N/A"],
+                    np.nan
+                ),
+                errors="coerce"
+            )
 
     # Usuwamy obserwacje bez wartości docelowej.
     valid_target = y.notna()
