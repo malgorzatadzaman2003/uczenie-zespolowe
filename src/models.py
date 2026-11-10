@@ -3,7 +3,48 @@ import numpy as np
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
 
-def create_decision_tree(task, random_state=None):
+# ============================================================
+# TYPY ZESPOŁÓW
+# ============================================================
+#
+# "random_forest" – domyślne hiperparametry drzew z RandomForestClassifier
+#     i RandomForestRegressor (scikit-learn): max_features="sqrt" w
+#     klasyfikacji i 1.0 (wszystkie cechy) w regresji. To główna
+#     konfiguracja po uwagach do planu (Tabela 4).
+# "bagging" – czysty bagging drzew (max_features=None), czyli konfiguracja
+#     z pierwotnego planu. Służy jako porównanie: czy losowanie cech
+#     "przykrywa" wpływ różnorodności próbek.
+#
+# W regresji obie konfiguracje są identyczne, bo domyślny las losowy
+# w scikit-learn używa wszystkich cech.
+
+ENSEMBLE_TYPES = {
+    "random_forest": {
+        "classification": {"max_features": "sqrt"},
+        "regression": {"max_features": 1.0},
+    },
+    "bagging": {
+        "classification": {"max_features": None},
+        "regression": {"max_features": None},
+    },
+}
+
+
+def get_tree_params(task, ensemble_type="random_forest"):
+    """
+    Returns decision-tree hyperparameters for a given ensemble type.
+    """
+
+    if ensemble_type not in ENSEMBLE_TYPES:
+        raise ValueError(
+            f"Nieznany typ zespołu: {ensemble_type}. "
+            f"Dostępne: {list(ENSEMBLE_TYPES)}"
+        )
+
+    return dict(ENSEMBLE_TYPES[ensemble_type][task])
+
+
+def create_decision_tree(task, random_state=None, max_features=None):
     """
     Creates a single decision tree for classification or regression.
 
@@ -22,7 +63,7 @@ def create_decision_tree(task, random_state=None):
         model = DecisionTreeClassifier(
             max_depth=None,
             min_samples_leaf=1,
-            max_features=None,
+            max_features=max_features,
             random_state=random_state
         )
 
@@ -30,7 +71,7 @@ def create_decision_tree(task, random_state=None):
         model = DecisionTreeRegressor(
             max_depth=None,
             min_samples_leaf=1,
-            max_features=None,
+            max_features=max_features,
             random_state=random_state
         )
 
@@ -47,7 +88,8 @@ def train_ensemble(
     y_train,
     samples,
     task="classification",
-    random_state=None
+    random_state=None,
+    max_features=None,
 ):
     """
     Trains an ensemble of decision trees based on prepared samples.
@@ -119,7 +161,8 @@ def train_ensemble(
 
         model = create_decision_tree(
             task=task,
-            random_state=tree_seed
+            random_state=tree_seed,
+            max_features=max_features,
         )
 
         model.fit(X_sample, y_sample)
@@ -158,7 +201,10 @@ def aggregate_predictions(predictions, task="classification"):
     Combines tree predictions into a single ensemble prediction.
 
     Classification:
-        majority voting.
+        majority (hard) voting. The main experiment uses soft voting
+        (averaged probabilities, see aggregate_probabilities), as in
+        scikit-learn's RandomForestClassifier; hard voting is kept for
+        comparison.
 
     Regression:
         arithmetic mean of the tree predictions.
@@ -264,3 +310,44 @@ def predict_ensemble_proba(models, X, classes=None):
     ensemble_probabilities /= len(models)
 
     return ensemble_probabilities
+
+
+def aggregate_probabilities(probabilities, classes):
+    """
+    Soft voting: averages class probabilities of individual trees and
+    returns the class with the highest mean probability.
+
+    probabilities : ndarray (n_trees, n_observations, n_classes)
+        or (n_observations, n_classes) if already averaged.
+    """
+
+    probabilities = np.asarray(probabilities)
+    classes = np.asarray(classes)
+
+    if probabilities.ndim == 3:
+        probabilities = probabilities.mean(axis=0)
+
+    return classes[np.argmax(probabilities, axis=1)]
+
+
+def predict_tree_probabilities(models, X, classes):
+    """
+    Returns per-tree class probabilities aligned to a common set of
+    classes: array of shape (n_trees, n_observations, n_classes).
+
+    A tree trained on a sample without some class gives it 0.
+    """
+
+    X = np.asarray(X)
+    classes = np.asarray(classes)
+
+    class_to_column = {label: i for i, label in enumerate(classes)}
+
+    output = np.zeros((len(models), len(X), len(classes)), dtype=float)
+
+    for t, model in enumerate(models):
+        proba = model.predict_proba(X)
+        columns = [class_to_column[label] for label in model.classes_]
+        output[t][:, columns] = proba
+
+    return output
