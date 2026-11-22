@@ -11,6 +11,10 @@ from sklearn.model_selection import train_test_split
 
 from ucimlrepo import fetch_ucirepo
 
+from pathlib import Path
+
+CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "cache"
+
 
 # Nazwy zbiorów i rodzaje zadań.
 # Zbiory oznaczone jako "openml" będą pobierane z OpenML.
@@ -53,7 +57,9 @@ DATASETS = {
         "task": "classification",
         "source": "openml",
         "openml_name": "bank-marketing",
-        "drop_columns": ["duration"],
+        # W wersji OpenML 1461 kolumny nazywają się V1..V16;
+        # "duration" to V12 (czas rozmowy, znany dopiero po fakcie).
+        "drop_columns": ["duration", "V12"],
         "openml_data_id": 1461,
     },
     "german_credit": {
@@ -115,7 +121,8 @@ DATASETS = {
         "source": "openml",
         "openml_name": "autoMpg",
         "drop_columns": ["name", "car_name"],
-        "numeric_columns": ["horsepower"],
+        # cylinders i model (rok) są porządkowe – traktujemy je liczbowo.
+        "numeric_columns": ["horsepower", "cylinders", "model"],
         "openml_data_id": 196,
     },
     "concrete": {
@@ -248,7 +255,13 @@ def _load_openml_dataset(
     if target_column is not None:
         fetch_options["target_column"] = target_column
 
-    dataset = fetch_openml(**fetch_options)
+    try:
+        dataset = fetch_openml(**fetch_options)
+    except TypeError:
+        # Parser "pandas" w scikit-learn >= 1.8 nie działa z pandas >= 3
+        # dla części plików ARFF (kategorie liczbowe). Parser liac-arff
+        # daje te same dane, jest tylko wolniejszy.
+        dataset = fetch_openml(parser="liac-arff", **fetch_options)
 
     X = dataset.data.copy()
     y = dataset.target.copy()
@@ -336,7 +349,9 @@ def _limit_dataset_size(
 def load_dataset(
     name,
     max_samples=20000,
-    random_state=42
+    random_state=42,
+    min_class_count=5,
+    use_cache=True,
 ):
     """
     Loads and performs basic preprocessing on a selected dataset.
@@ -370,40 +385,8 @@ def load_dataset(
     info = DATASETS[name]
     task = info["task"]
 
-    # Wczytanie danych z odpowiedniego źródła.
-    if info["source"] == "sklearn":
-        X, y = _load_sklearn_dataset(name)
-
-    elif info["source"] == "openml":
-        try:
-            X, y = _load_openml_dataset(
-                openml_name=info.get("openml_name"),
-                openml_data_id=info.get("openml_data_id"),
-                target_column=info.get("target_column")
-            )
-
-        except Exception as error:
-            raise RuntimeError(
-                f"Nie udało się pobrać zbioru '{name}' "
-                f"z OpenML. Szczegóły: {error}"
-            ) from error
-
-    elif info["source"] == "uci":
-        try:
-            X, y = _load_uci_dataset(
-                uci_id=info["uci_id"]
-            )
-
-        except Exception as error:
-            raise RuntimeError(
-                f"Nie udało się pobrać zbioru '{name}' "
-                f"z UCI. Szczegóły: {error}"
-            ) from error
-
-    else:
-        raise ValueError(
-            f"Nieznane źródło danych: {info['source']}"
-        )
+    # Wczytanie danych z odpowiedniego źródła (z lokalnym cache).
+    X, y = _load_raw_cached(name, info, use_cache=use_cache)
 
     # Upewniamy się, że dane mają spójny format.
     X = pd.DataFrame(X).copy()
@@ -472,6 +455,16 @@ def load_dataset(
         X = X.loc[valid_target].reset_index(drop=True)
         y = y.loc[valid_target].reset_index(drop=True)
 
+    cleaning_report = {"n_raw": int(len(X)), "d_raw": int(X.shape[1])}
+
+    # Usuwamy klasy zbyt rzadkie, by trafić do każdego foldu
+    # walidacji warstwowej (przed jakimkolwiek podziałem).
+    if task == "classification":
+        X, y, removed_classes = _drop_rare_classes(
+            X, y, min_class_count=min_class_count
+        )
+        cleaning_report["removed_classes"] = removed_classes
+
     # Ograniczamy duże zbiory do 20 000 obserwacji.
     X, y = _limit_dataset_size(
         X=X,
@@ -485,6 +478,13 @@ def load_dataset(
     X = X.reset_index(drop=True)
     y = y.reset_index(drop=True)
 
+    # Kolumny stałe i puste nie niosą informacji – usuwamy je raz,
+    # na poziomie całego zbioru (nie zależy to od podziału).
+    X, removed_columns = _drop_uninformative_columns(X)
+    cleaning_report["removed_columns"] = removed_columns
+    cleaning_report["n"] = int(len(X))
+    cleaning_report["d"] = int(X.shape[1])
+
     if len(X) == 0:
         raise ValueError(
             f"Zbiór '{name}' nie zawiera żadnych poprawnych obserwacji."
@@ -494,5 +494,117 @@ def load_dataset(
         "name": name,
         "task": task,
         "X": X,
-        "y": y
+        "y": y,
+        "cleaning": cleaning_report,
     }
+
+
+# ============================================================
+# PREPROCESSING NA POZIOMIE CAŁEGO ZBIORU
+# ============================================================
+
+def _drop_uninformative_columns(X):
+    """
+    Removes columns that are constant or entirely missing.
+
+    Such columns do not depend on the train/test split, so they can
+    be removed once for the whole dataset, before any split.
+    """
+
+    removed = [
+        column
+        for column in X.columns
+        if X[column].nunique(dropna=True) <= 1
+    ]
+
+    if removed:
+        X = X.drop(columns=removed)
+
+    return X, [str(column) for column in removed]
+
+
+def _drop_rare_classes(X, y, min_class_count=5):
+    """
+    Removes observations of classes with fewer than
+    min_class_count records.
+
+    With 5-fold stratified cross-validation every class needs
+    at least 5 observations to appear in every test fold.
+    """
+
+    counts = y.value_counts()
+    rare = counts[counts < min_class_count].index.tolist()
+
+    if not rare:
+        return X, y, []
+
+    keep = ~y.isin(rare)
+
+    X = X.loc[keep].reset_index(drop=True)
+    y = y.loc[keep].reset_index(drop=True)
+
+    if hasattr(y, "cat"):
+        y = y.cat.remove_unused_categories()
+
+    return X, y, [str(label) for label in rare]
+
+def _load_raw(name, info):
+    """Loads raw data from the configured source."""
+
+    if info["source"] == "sklearn":
+        X, y = _load_sklearn_dataset(name)
+
+    elif info["source"] == "openml":
+        try:
+            X, y = _load_openml_dataset(
+                openml_name=info.get("openml_name"),
+                openml_data_id=info.get("openml_data_id"),
+                target_column=info.get("target_column")
+            )
+
+        except Exception as error:
+            raise RuntimeError(
+                f"Nie udało się pobrać zbioru '{name}' "
+                f"z OpenML. Szczegóły: {error}"
+            ) from error
+
+    elif info["source"] == "uci":
+        try:
+            X, y = _load_uci_dataset(
+                uci_id=info["uci_id"]
+            )
+
+        except Exception as error:
+            raise RuntimeError(
+                f"Nie udało się pobrać zbioru '{name}' "
+                f"z UCI. Szczegóły: {error}"
+            ) from error
+
+    else:
+        raise ValueError(
+            f"Nieznane źródło danych: {info['source']}"
+        )
+
+    return X, y
+
+
+def _load_raw_cached(name, info, use_cache=True):
+    """
+    Loads raw data, caching it in data/cache as a pickle.
+
+    UCI downloads are not cached by ucimlrepo, and OpenML ARFF parsing
+    is slow, so a local copy speeds up repeated experiments.
+    """
+
+    cache_path = CACHE_DIR / f"{name}.pkl"
+
+    if use_cache and cache_path.exists():
+        return pd.read_pickle(cache_path)
+
+    X, y = _load_raw(name, info)
+
+    if use_cache:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        pd.to_pickle((X, y), cache_path)
+
+    return X, y

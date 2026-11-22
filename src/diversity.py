@@ -429,3 +429,218 @@ def feature_representativeness(sample, X_train):
 
     # Średnia odległość dla wszystkich cech.
     return float(np.mean(feature_distances))
+
+
+# ============================================================
+# WERSJE WEKTOROWE (używane w eksperymencie)
+# ============================================================
+#
+# Funkcje powyżej liczą miary dla jednej pary próbek. Dla M = 100 drzew
+# to 4950 par, co przy n rzędu 10^4 w czystym Pythonie zajmuje minuty
+# na jeden wariant. Poniższe funkcje liczą te same wielkości naraz dla
+# wszystkich par, na macierzy krotności C (M x n), gdzie C[i, r] to liczba
+# wystąpień obserwacji r w próbce drzewa i. Zwracają wartości dla par
+# (i < j) w kolejności itertools.combinations, a dla pojedynczych próbek
+# wektor długości M. Zgodność z funkcjami powyżej sprawdza
+# tests/test_diversity_vectorized.py.
+
+def sample_count_matrix(samples, n_observations):
+    """
+    Returns the multiplicity matrix C of shape (M, n).
+    """
+
+    counts = np.zeros((len(samples), n_observations), dtype=np.float64)
+
+    for i, sample in enumerate(samples):
+        counts[i] = np.bincount(
+            np.asarray(sample), minlength=n_observations
+        )
+
+    return counts
+
+
+def _upper_triangle(matrix):
+    rows, cols = np.triu_indices(matrix.shape[0], k=1)
+    return matrix[rows, cols]
+
+
+def _pairwise_l1(rows):
+    """
+    Pairwise L1 distances between rows, as a condensed vector.
+    """
+
+    rows = np.asarray(rows, dtype=np.float64)
+    m = rows.shape[0]
+    out = []
+
+    for i in range(m - 1):
+        out.append(np.abs(rows[i + 1:] - rows[i]).sum(axis=1))
+
+    return np.concatenate(out) if out else np.array([])
+
+
+def _weighted_cdf_l1(weights, values, reference_weights=None):
+    """
+    1-D Wasserstein distance between discrete distributions supported on
+    the same points `values`, given as weight rows (each summing to 1).
+
+    W1(P, Q) = integral |F_P(t) - F_Q(t)| dt
+             = sum_k |F_P(v_k) - F_Q(v_k)| * (v_{k+1} - v_k).
+
+    If reference_weights is None, returns pairwise distances between
+    rows (condensed vector); otherwise the distance of each row to the
+    reference distribution (vector of length M).
+    """
+
+    order = np.argsort(values, kind="stable")
+    gaps = np.diff(values[order])
+
+    cdf = np.cumsum(weights[:, order], axis=1)[:, :-1]
+
+    if reference_weights is not None:
+        reference_cdf = np.cumsum(reference_weights[order])[:-1]
+        return (np.abs(cdf - reference_cdf) * gaps).sum(axis=1)
+
+    m = cdf.shape[0]
+    out = []
+
+    for i in range(m - 1):
+        out.append((np.abs(cdf[i + 1:] - cdf[i]) * gaps).sum(axis=1))
+
+    return np.concatenate(out) if out else np.array([])
+
+
+def pairwise_jaccard_vector(counts):
+    """D_J for all pairs of samples."""
+
+    present = (counts > 0).astype(np.float64)
+    intersection = present @ present.T
+    sizes = present.sum(axis=1)
+    union = sizes[:, None] + sizes[None, :] - intersection
+
+    return _upper_triangle(1.0 - intersection / union)
+
+
+def pairwise_multiplicity_vector(counts):
+    """D_C for all pairs of samples (shares c_ir / m_i)."""
+
+    shares = counts / counts.sum(axis=1, keepdims=True)
+
+    return 0.5 * _pairwise_l1(shares)
+
+
+def _class_proportions(counts, y_train, classes):
+    one_hot = (np.asarray(y_train)[:, None] == classes[None, :]).astype(
+        np.float64
+    )
+
+    return (counts @ one_hot) / counts.sum(axis=1, keepdims=True)
+
+
+def pairwise_target_vector(counts, y_train, task="classification"):
+    """D_Y for all pairs of samples."""
+
+    y_train = np.asarray(y_train)
+
+    if task == "classification":
+        classes = np.unique(y_train)
+        proportions = _class_proportions(counts, y_train, classes)
+        return 0.5 * _pairwise_l1(proportions)
+
+    y = y_train.astype(np.float64)
+    y_std = np.std(y)
+
+    if y_std == 0:
+        raise ValueError("Odchylenie standardowe y_train wynosi zero.")
+
+    weights = counts / counts.sum(axis=1, keepdims=True)
+
+    return _weighted_cdf_l1(weights, y) / y_std
+
+
+def unique_fraction_vector(counts):
+    """U_i for every sample."""
+
+    return (counts > 0).sum(axis=1) / counts.shape[1]
+
+
+def target_representativeness_vector(counts, y_train, task="classification"):
+    """R_Y,i for every sample (lower = more representative)."""
+
+    y_train = np.asarray(y_train)
+    n = counts.shape[1]
+
+    if task == "classification":
+        classes = np.unique(y_train)
+        proportions = _class_proportions(counts, y_train, classes)
+        full = np.array([np.mean(y_train == c) for c in classes])
+        return 0.5 * np.abs(proportions - full).sum(axis=1)
+
+    y = y_train.astype(np.float64)
+    y_std = np.std(y)
+
+    if y_std == 0:
+        raise ValueError("Odchylenie standardowe y_train wynosi zero.")
+
+    weights = counts / counts.sum(axis=1, keepdims=True)
+
+    return _weighted_cdf_l1(weights, y, np.full(n, 1.0 / n)) / y_std
+
+
+def feature_representativeness_vector(counts, X_train):
+    """
+    R_X,i for every sample: mean over features of the Wasserstein
+    distance between the standardized feature distribution in the
+    sample and in the whole training part.
+    """
+
+    X_train = np.asarray(X_train, dtype=np.float64)
+    n, d = X_train.shape
+
+    weights = counts / counts.sum(axis=1, keepdims=True)
+    reference = np.full(n, 1.0 / n)
+
+    stds = X_train.std(axis=0)
+    stds[stds == 0] = 1.0
+
+    total = np.zeros(counts.shape[0])
+
+    for f in range(d):
+        total += _weighted_cdf_l1(weights, X_train[:, f], reference) / stds[f]
+
+    return total / d
+
+
+def sample_measures(samples, X_train, y_train, task="classification"):
+    """
+    Computes all pre-training sample measures for one ensemble.
+
+    Returns
+    -------
+    pairs : dict of condensed vectors (length M(M-1)/2)
+        jaccard, multiplicity, target
+    trees : dict of vectors (length M)
+        unique_fraction, target_representativeness,
+        feature_representativeness
+    """
+
+    n = len(y_train)
+    counts = sample_count_matrix(samples, n)
+
+    pairs = {
+        "jaccard": pairwise_jaccard_vector(counts),
+        "multiplicity": pairwise_multiplicity_vector(counts),
+        "target": pairwise_target_vector(counts, y_train, task),
+    }
+
+    trees = {
+        "unique_fraction": unique_fraction_vector(counts),
+        "target_representativeness": target_representativeness_vector(
+            counts, y_train, task
+        ),
+        "feature_representativeness": feature_representativeness_vector(
+            counts, X_train
+        ),
+    }
+
+    return pairs, trees

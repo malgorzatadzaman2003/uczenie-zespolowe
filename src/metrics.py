@@ -257,6 +257,13 @@ def evaluate_ensemble(
             classes=classes
         )
 
+        # Głosowanie miękkie (uśrednione prawdopodobieństwa), jak w
+        # RandomForestClassifier. Głosowanie większościowe zostaje
+        # w aggregate_predictions do porównań.
+        final_predictions = np.asarray(classes)[
+            np.argmax(probabilities, axis=1)
+        ]
+
         return classification_metrics(
             y_true=y_test,
             y_pred=final_predictions,
