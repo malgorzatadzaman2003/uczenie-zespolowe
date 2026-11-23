@@ -673,6 +673,8 @@ def _draw_fold(
             n=len(y_train_model), ratio=1.0,
             n_estimators=n_estimators, random_state=seed)
 
+        # Ziarno drzew jest wspólne dla wszystkich losowań, więc zespoły
+        # różnią się wyłącznie wylosowanymi próbkami (Sekcja 4.6).
         row = evaluate_samples(
             samples=samples,
             X_train=X_train_processed,
@@ -682,7 +684,7 @@ def _draw_fold(
             task=task,
             classes_idx=classes_idx,
             max_features=max_features,
-            random_state=seed,
+            random_state=random_state,
         )
 
         rows.append({

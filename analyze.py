@@ -43,18 +43,35 @@ def main():
     tables = run_analysis(results, Path("results") / args.run / "analysis",
                           draws=draws)
 
+    # Czysty bagging (klasyfikacja): pełna analiza w osobnym katalogu,
+    # m.in. H1 zgodnie z planem (dla klasycznego baggingu).
+    bagging_tables = None
+    if bagging is not None:
+        bagging_tables = run_analysis(
+            bagging, Path("results") / args.bagging_run / "analysis",
+            with_datasets=False)
+
     paths = make_all(results, tables, Path("figures") / args.run,
                      aggregated_bagging=(aggregate(bagging)
-                                         if bagging is not None else None))
+                                         if bagging is not None else None),
+                     bagging_tables=bagging_tables)
 
     pd.set_option("display.width", 200)
     pd.set_option("display.max_columns", 20)
     pd.set_option("display.max_rows", 200)
 
-    for name in ("friedman", "control_comparisons", "control_comparisons_pooled",
-                 "s3_core_test", "h1_tests", "h2_tests", "draw_tests", "power"):
+    for name in ("datasets", "friedman", "control_comparisons",
+                 "control_comparisons_pooled", "practical_significance",
+                 "s3_core_test", "h1_tests", "h2_tests",
+                 "measures_vs_ranks_correlation", "draw_tests", "power"):
         print(f"\n=== {name} ===")
         print(tables[name].round(4).to_string(index=False))
+
+    if bagging_tables is not None:
+        for name in ("friedman", "control_comparisons", "h1_tests",
+                     "h2_tests"):
+            print(f"\n=== bagging: {name} ===")
+            print(bagging_tables[name].round(4).to_string(index=False))
 
     print("\nFigures:")
     for p in paths:

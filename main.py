@@ -1154,33 +1154,24 @@ def test_preprocessing():
     print("=" * 60)
 
     # ==========================================
-    # Dane testowe z brakami
+    # Dane bez braków (braki usuwa load_dataset
+    # przed podziałem); w teście pojawia się
+    # kategoria nieznana z treningu ("Poznan").
     # ==========================================
 
     X_train = pd.DataFrame({
-        "age": [20, 30, np.nan, 40, 50, 60],
-        "income": [2000, 3000, 2500, np.nan, 5000, 6000],
-        "city": ["Warsaw", "Krakow", None, "Warsaw", "Gdansk", "Krakow"],
-        "education": ["high", "medium", "high", None, "low", "medium"]
+        "age": [20, 30, 35, 40, 50, 60],
+        "income": [2000, 3000, 2500, 4000, 5000, 6000],
+        "city": ["Warsaw", "Krakow", "Gdansk", "Warsaw", "Gdansk", "Krakow"],
+        "education": ["high", "medium", "high", "low", "low", "medium"]
     })
 
     X_test = pd.DataFrame({
-        "age": [25, np.nan, 55],
-        "income": [2200, 4500, np.nan],
-        "city": ["Warsaw", "Poznan", None],
+        "age": [25, 45, 55],
+        "income": [2200, 4500, 5100],
+        "city": ["Warsaw", "Poznan", "Krakow"],
         "education": ["high", "very_high", "low"]
     })
-
-    print("\nLiczba obserwacji treningowych:", len(X_train))
-    print("Liczba obserwacji testowych:", len(X_test))
-
-    print("\nBraki przed preprocessingiem:")
-    print("Trening:", X_train.isna().sum().sum())
-    print("Test:", X_test.isna().sum().sum())
-
-    # ==========================================
-    # Preprocessing
-    # ==========================================
 
     X_train_processed, X_test_processed, preprocessor = (
         preprocess_train_test(X_train, X_test)
@@ -1191,37 +1182,26 @@ def test_preprocessing():
     print("\nWymiary po preprocessingu:")
     print("Trening:", X_train_processed.shape)
     print("Test:", X_test_processed.shape)
-
     print("\nNazwy cech po preprocessingu:")
     print(feature_names)
 
-    print("\nLiczba wartości NaN po preprocessingu:")
-    print("Trening:", np.isnan(X_train_processed).sum())
-    print("Test:", np.isnan(X_test_processed).sum())
+    # Kategoria "Poznan" nie występuje w treningu -> same zera.
+    city_columns = [i for i, f in enumerate(feature_names)
+                    if str(f).startswith("city_")]
+    assert X_test_processed[1, city_columns].sum() == 0
+    print("Kategoria nieznana w teście zakodowana jako same zera: OK")
 
-    # ==========================================
-    # Asercje
-    # ==========================================
+    # Braki nie są uzupełniane – preprocessing ma zgłosić błąd.
+    X_missing = X_test.copy()
+    X_missing.loc[0, "age"] = np.nan
 
-    assert X_train_processed.shape[0] == len(X_train)
-    assert X_test_processed.shape[0] == len(X_test)
-
-    assert X_train_processed.shape[1] == X_test_processed.shape[1]
-
-    assert np.isfinite(X_train_processed).all()
-    assert np.isfinite(X_test_processed).all()
-
-    # Sprawdzamy, czy nowa kategoria "Poznan"
-    # nie spowodowała błędu.
-    assert "city_Poznan" not in feature_names
-
-    # Sprawdzamy, czy powstała kolumna dla kategorii brakującej.
-    assert any(
-        "missing" in str(name)
-        for name in feature_names
-    )
-
-    print("\nWszystkie testy preprocessingu zakończone poprawnie!")
+    try:
+        preprocess_train_test(X_train, X_missing)
+    except ValueError as error:
+        print("Braki w danych są odrzucane: OK")
+        print("Komunikat:", error)
+    else:
+        raise AssertionError("preprocess_train_test przyjął dane z brakami")
 
 
 def test_preprocessing_all_datasets():

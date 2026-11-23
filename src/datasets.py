@@ -11,6 +11,8 @@ from sklearn.model_selection import train_test_split
 
 from ucimlrepo import fetch_ucirepo
 
+from src.preprocessing import _clean_missing_values
+
 from pathlib import Path
 
 CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "cache"
@@ -457,6 +459,19 @@ def load_dataset(
 
     cleaning_report = {"n_raw": int(len(X)), "d_raw": int(X.shape[1])}
 
+    # Braki danych: usuwamy całe wiersze z brakiem w którejkolwiek cesze
+    # (zamiast imputacji). Decyzja zależy tylko od samego wiersza, nie od
+    # statystyk liczonych na innych obserwacjach, więc nie przenosi żadnej
+    # informacji między częścią treningową a testową.
+    X, y, n_missing = _drop_missing_rows(X, y)
+    cleaning_report["removed_missing_rows"] = n_missing
+
+    # Identyczne obserwacje (te same cechy i ta sama wartość docelowa)
+    # mogłyby trafić jednocześnie do części treningowej i testowej,
+    # a miary U i D_J traktowałyby kopie jak różne obserwacje.
+    X, y, n_duplicates = _drop_duplicate_rows(X, y)
+    cleaning_report["removed_duplicate_rows"] = n_duplicates
+
     # Usuwamy klasy zbyt rzadkie, by trafić do każdego foldu
     # walidacji warstwowej (przed jakimkolwiek podziałem).
     if task == "classification":
@@ -521,6 +536,47 @@ def _drop_uninformative_columns(X):
         X = X.drop(columns=removed)
 
     return X, [str(column) for column in removed]
+
+
+def _drop_missing_rows(X, y):
+    """
+    Removes observations with a missing value in any feature.
+
+    Text placeholders ("?", "NA", ...) are first mapped to NaN. The
+    decision depends only on the row itself, so it can be made once,
+    before any split, without leaking test information.
+    """
+
+    X = _clean_missing_values(X)
+    keep = ~X.isna().any(axis=1)
+    n_removed = int((~keep).sum())
+
+    if n_removed:
+        X = X.loc[keep].reset_index(drop=True)
+        y = y.loc[keep].reset_index(drop=True)
+
+    return X, y, n_removed
+
+
+def _drop_duplicate_rows(X, y):
+    """
+    Removes exact duplicates (identical features and target).
+
+    Copies of one record split between the training and the test part
+    make the test score optimistic. Rows with equal features but
+    different targets are kept, as they carry real label noise.
+    """
+
+    full = X.copy()
+    full["__target__"] = y.to_numpy()
+    keep = ~full.duplicated(keep="first")
+    n_removed = int((~keep).sum())
+
+    if n_removed:
+        X = X.loc[keep].reset_index(drop=True)
+        y = y.loc[keep].reset_index(drop=True)
+
+    return X, y, n_removed
 
 
 def _drop_rare_classes(X, y, min_class_count=5):
