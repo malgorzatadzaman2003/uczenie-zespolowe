@@ -1,0 +1,14 @@
+\begin{table}[!htbp]
+\centering\small
+\caption{Bezpośredni test drugiej części H2. Wariant S3 z~$\gamma=0$ (próbki niezależne) porównano z~$\gamma=0.75$ (75\% każdej próbki wspólne dla wszystkich drzew) przy tym samym rozmiarze $m=0.5n$. Dodatnia różnica oznacza, że mniejsze pokrywanie się próbek daje lepszy zespół. Kolumna Bayes zawiera kolejno prawdopodobieństwa a~posteriori, że lepsze jest $\gamma=0.75$, że różnica mieści się w~ROPE i~że lepsze jest $\gamma=0$.}
+\label{tab:s3}
+\begin{tabular}{lrrrrc}
+\toprule
+\textbf{Zadanie} & \textbf{zbiory} & \textbf{mediana różnicy} & \textbf{wygrane $\gamma=0$} & $p$ & \textbf{Bayes} \\
+\midrule
+Klasyfikacja & 12 & +0.31 & 9 & 0.007 & 0.00 / 0.94 / 0.06 \\
+Regresja & 12 & +7.38 & 12 & <0.001 & 0.00 / 0.00 / 1.00 \\
+Łącznie (24 zbiory) & 24 & +4.20 & 21 & <0.001 & 0.00 / 0.00 / 1.00 \\
+\bottomrule
+\end{tabular}
+\end{table}

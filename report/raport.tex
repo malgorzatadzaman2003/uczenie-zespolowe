@@ -1,0 +1,375 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[polish]{babel}
+\usepackage{fontspec}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,longtable,tabularx,multirow,makecell}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{xcolor}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+
+\setlist{itemsep=2pt,topsep=4pt}
+\captionsetup{font=small,labelfont=bf}
+\captionsetup[table]{position=top}
+\captionsetup[figure]{position=bottom}
+\graphicspath{{figures/}}
+\renewcommand{\arraystretch}{1.12}
+\setlength{\emergencystretch}{2em}
+\newcommand{\pp}{\,p.p.}
+
+\title{Analiza miar różnorodności próbek w~baggingu\\[4pt]
+\large Raport końcowy, projekt 1, Uczenie Zespołowe}
+\author{Jerzy Czarnecki (327\,239) \and Małgorzata Dżaman (327\,241)}
+\date{Politechnika Warszawska, Wydział Matematyki i~Nauk Informacyjnych\\
+Warszawa, 24.11.2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent
+\input{abstract}
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+% ====================================================================
+\section{Cel i~problem badawczy}
+\label{sec:cel}
+% ====================================================================
+
+Bagging~\cite{breiman1996} jest metodą budowy zespołu modeli. Z~części treningowej losuje się $M$ próbek, na każdej z~nich uczy się osobny model (w~tym projekcie drzewo decyzyjne), a~predykcje modeli uśrednia się. Las losowy~\cite{breiman2001} działa tak samo, ale dodatkowo w~każdym węźle drzewa losuje podzbiór cech, spośród których wybierany jest podział. W~obu metodach każdą próbkę losuje się domyślnie ze zwracaniem i~ma ona tyle obserwacji, ile liczy część treningowa. Takie losowanie nazywamy bootstrapowym.
+
+Celem projektu jest sprawdzenie, czy miary różnorodności i~reprezentatywności próbek uczących, obliczone \emph{przed} uczeniem drzew, są związane z~jakością zespołu i~czy pozwalają wskazać sposób losowania próbek, przy którym zespół jest lepszy.
+
+Breiman~\cite{breiman2001} pokazał, że błąd lasu drzew jest ograniczony z~góry przez
+\[
+PE^{*} \le \frac{\bar{\rho}\,(1-s^{2})}{s^{2}},
+\]
+gdzie $s$ oznacza siłę (dokładność) drzew, a~$\bar{\rho}$ ich średnią korelację. Obie wielkości zależą od sposobu losowania próbek: mniejsze próbki dają drzewa bardziej różne, ale słabsze. Znane miary różnorodności zespołu, takie jak statystyka Q, niezgodność czy korelacja błędów, wymagają predykcji nauczonych modeli~\cite{kuncheva2003,brown2005}. Próbki są natomiast znane przed uczeniem. Jeżeli miary obliczone na samych próbkach niosą informację o~jakości zespołu, można by na ich podstawie wybierać sposób losowania bez uczenia wielu zespołów.
+
+\paragraph{Główny problem badawczy.} Czy miary różnorodności i~reprezentatywności próbek uczących, obliczone przed uczeniem modeli, są związane z~jakością zespołu, także po uwzględnieniu siły modeli składowych?
+
+\paragraph{Pytania badawcze i~hipotezy.} Wszystkie hipotezy testujemy dwustronnie.
+\begin{description}[leftmargin=1.2cm,style=nextline]
+  \item[PB1] Czy różnice między próbkami przekładają się na różnice między drzewami?\\
+  \textbf{H1:} drzewa uczone na bardziej różniących się próbkach dają bardziej różniące się predykcje, a~drzewa uczone na bardziej reprezentatywnych próbkach są dokładniejsze.
+  \item[PB2] Czy miary próbek są związane z~jakością zespołu, także po uwzględnieniu średniej jakości drzew?\\
+  \textbf{H2:} tak; w~szczególności przy stałym rozmiarze próbek większe pokrywanie się próbek różnych drzew pogarsza jakość zespołu.
+  \item[PB3] Czy któryś sposób losowania daje lepsze zespoły niż losowanie bootstrapowe i~czy wskazują na to miary obliczone przed uczeniem?\\
+  \textbf{H3:} co najmniej jeden wariant losowania daje zespół o~innej jakości niż losowanie bootstrapowe.
+\end{description}
+
+Nie zakładamy z~góry, że większa różnorodność próbek prowadzi do lepszego zespołu ani że jedna miara jest najlepsza dla wszystkich zbiorów danych.
+
+% ====================================================================
+\section{Przegląd literatury}
+% ====================================================================
+
+\paragraph{Bagging i~warianty próbkowania.} Bagging~\cite{breiman1996} zmniejsza wariancję niestabilnych modeli, takich jak głębokie drzewa decyzyjne. Breiman zaproponował też uczenie na małych fragmentach danych losowanych bez zwracania (\emph{pasting})~\cite{breiman1999}. Bühlmann i~Yu~\cite{buhlmann2002} wyjaśnili, w~jaki sposób bagging zmniejsza wariancję, i~zaproponowali \emph{subagging}, czyli losowanie mniejszych podpróbek bez zwracania. Pokazali też, że podpróbka o~rozmiarze $n/2$ daje w~przybliżeniu ten sam efekt co próbka bootstrapowa. Martínez-Muñoz i~Suárez~\cite{martinez2010} pokazali, że próbki mniejsze od części treningowej często dają lepsze zespoły, a~najlepszy rozmiar zależy od zbioru. Las losowy~\cite{breiman2001} dodaje do baggingu losowanie cech w~każdym węźle, co dodatkowo zmniejsza korelację drzew. Według Probsta i~in.~\cite{probst2019} rozmiar próbki i~sposób jej losowania (ze zwracaniem lub bez) są hiperparametrami lasu losowego, które wpływają na jego jakość, choć zwykle w~niewielkim stopniu.
+
+\paragraph{Siła i~niezależność modeli.} Krogh i~Vedelsby~\cite{krogh1995} pokazali, że w~regresji błąd kwadratowy zespołu uśredniającego jest równy średniemu błędowi modeli pomniejszonemu o~rozrzut ich predykcji wokół średniej (\emph{ambiguity}). Brown, Wyatt i~Tiňo~\cite{brown2005} zwrócili uwagę, że różnorodność poprawia zespół tylko wtedy, gdy nie pogarsza nadmiernie modeli składowych.
+
+\paragraph{Miary różnorodności.} Kuncheva i~Whitaker~\cite{kuncheva2003} porównali dziesięć miar różnorodności klasyfikatorów i~nie znaleźli jednoznacznego związku między ich wartościami a~dokładnością zespołu. Brown i~in.~\cite{brown2005survey} opisali losowanie obserwacji jako jedno z~podstawowych źródeł różnorodności modeli.
+
+\paragraph{Luka badawcza.} Opisane miary dotyczą predykcji lub błędów nauczonych modeli. Właściwości samych próbek pojawiają się w~literaturze głównie pośrednio, jako rozmiar próbki. W~projekcie sprawdzamy, czy proste miary obliczone na próbkach przed uczeniem niosą informację o~jakości zespołu, przy wspólnym protokole dla klasyfikacji i~regresji.
+
+% ====================================================================
+\section{Metoda}
+% ====================================================================
+
+\subsection{Schemat badania}
+\label{sec:schemat}
+
+Dla każdego zbioru danych i~każdego z~50 podziałów na część treningową i~testową:
+\begin{enumerate}
+  \item dopasowujemy kodowanie cech kategorycznych wyłącznie na części treningowej;
+  \item dla każdego z~15 wariantów losowania losujemy $M=100$ próbek indeksów części treningowej;
+  \item obliczamy miary próbek \textbf{przed uczeniem drzew} i~bez dostępu do części testowej: miary różnorodności dla każdej z~$\binom{100}{2}=4950$ par próbek oraz miary reprezentatywności dla każdej ze 100 próbek;
+  \item uczymy po jednym drzewie na każdej próbce i~łączymy ich predykcje;
+  \item oceniamy pojedyncze drzewa, pary drzew i~cały zespół na części testowej.
+\end{enumerate}
+Liczba $M=100$ oznacza liczbę drzew (i~próbek) w~zespole, a~nie rozmiar próbki. Rozmiar próbki $m$ jest czynnikiem eksperymentalnym. W~wariancie odniesienia (S1, $r=1$, Sekcja~\ref{sec:warianty}) wynosi on $m=n$, czyli tyle, ile obserwacji liczy część treningowa.
+
+\subsection{Model bazowy i~agregacja}
+\label{sec:model}
+
+W~eksperymencie głównym używamy lasu losowego w~domyślnej konfiguracji biblioteki \texttt{scikit-learn}~\cite{sklearn}. Drzewa rosną bez ograniczenia głębokości. W~klasyfikacji w~każdym węźle losowanych jest $\sqrt{d}$ cech, a~w~regresji brane są pod uwagę wszystkie cechy (\texttt{max\_features=1.0}), więc domyślny las losowy w~regresji jest baggingiem drzew. Wbudowane losowanie próbek wyłączyliśmy i~uczymy drzewa na próbkach generowanych przez nasz kod, z~zachowaniem powtórzeń obserwacji. Dzięki temu znamy każdą próbkę i~możemy obliczyć jej miary.
+
+Dla klasyfikacji powtórzyliśmy cały eksperyment z~drzewami, które w~każdym węźle rozważają wszystkie cechy. Odpowiada to baggingowi w~pierwotnym sformułowaniu Breimana~\cite{breiman1996}. W~dalszej części tę konfigurację nazywamy \emph{baggingiem}, a~konfigurację główną \emph{lasem losowym}. W~baggingu jedynym źródłem różnic między drzewami jest losowanie obserwacji, co odpowiada pierwotnemu planowi projektu. Porównanie obu konfiguracji pokazuje, jak losowanie cech zmienia wpływ losowania próbek.
+
+\textbf{Agregacja.} W~klasyfikacji zespół uśrednia prawdopodobieństwa klas przewidywane przez drzewa i~wybiera klasę o~największej średniej (głosowanie miękkie), tak jak las losowy w~\texttt{scikit-learn}. Wynik głosowania większościowego zapisujemy pomocniczo. W~regresji zespół zwraca średnią predykcji drzew.
+
+\subsection{Warianty losowania próbek}
+\label{sec:warianty}
+
+Niech $n$ oznacza liczbę obserwacji części treningowej, a~$m$ rozmiar jednej próbki. Porównujemy 15 wariantów z~czterech rodzin (Tabela~\ref{tab:warianty}). Punktem odniesienia jest wariant S1 z~$r=1$, czyli losowanie ze zwracaniem $m=n$ obserwacji, stosowane domyślnie w~baggingu i~lesie losowym. W~dalszej części nazywamy go \emph{wariantem odniesienia}.
+
+\begin{table}[!htbp]
+\centering\small
+\caption{Warianty losowania próbek.}
+\label{tab:warianty}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.2\textwidth}>{\raggedright\arraybackslash}p{0.3\textwidth}X}
+\toprule
+\textbf{Rodzina} & \textbf{Parametry} & \textbf{Co zmienia} \\
+\midrule
+S1: losowanie ze zwracaniem & $m=rn$, $r\in\{0.2,0.4,0.6,0.8,1\}$ & rozmiar próbki, a~przez to jednocześnie siłę drzew i~ich różnorodność \\
+S2: losowanie bez zwracania & $m=sn$, $s\in\{0.18,0.33,0.45,0.55,0.63\}$ & to samo co S1 przy tej samej oczekiwanej liczbie różnych obserwacji ($s\approx1-e^{-r}$), ale bez powtórzeń \\
+S3: wspólny rdzeń & bez zwracania, $m=0.5n$, $\gamma\in\{0,0.25,0.5,0.75\}$ & wyłącznie stopień pokrywania się próbek przy stałym rozmiarze \\
+S4: losowanie warstwowe & ze zwracaniem, $m=n$, osobno w~każdej klasie (w~regresji w~10 przedziałach kwantylowych $y$) & usuwa losowe wahania proporcji klas lub rozkładu $y$ między próbkami \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{S1 i~S2.} W~S1 każde drzewo losuje ze zwracaniem $m=rn$ obserwacji. Próbka zawiera wtedy około $1-e^{-r}$ różnych obserwacji części treningowej (dla $r=1$ około 63\%), a~pozostałe pozycje to powtórzenia. Wartości $s$ w~S2 dobraliśmy tak, aby próbka losowana bez zwracania zawierała tyle samo różnych obserwacji. Porównanie S1 z~S2 przy tym samym udziale różnych obserwacji pokazuje więc, czy na wynik wpływa samo powtarzanie obserwacji.
+
+\textbf{S3: wspólny rdzeń.} Parametr $\gamma$ jest udziałem wspólnego rdzenia w~próbce. W~planie oznaczaliśmy go $\alpha$; zmieniliśmy oznaczenie, aby nie mylić go z~poziomem istotności. Najpierw, raz dla całego zespołu, losujemy bez zwracania $\gamma m$ obserwacji, które trafiają do próbki \emph{każdego} drzewa. Następnie każde drzewo osobno dolosowuje bez zwracania $(1-\gamma)m$ obserwacji spośród pozostałych $n-\gamma m$. Każda próbka ma więc ten sam rozmiar $m=0.5n$ i~rozpatrywana osobno jest zwykłą losową podpróbką. Zmienia się tylko stopień pokrywania się próbek różnych drzew. Przy $\gamma=0$ próbki są losowane niezależnie, a~przy $\gamma=0.75$ trzy czwarte każdej próbki są wspólne dla wszystkich drzew. Wariant S3 pozwala zatem oddzielić wpływ niezależności próbek od wpływu siły drzew.
+
+\textbf{S4: losowanie warstwowe.} W~każdej klasie losujemy ze zwracaniem tyle obserwacji, ile liczy ona w~części treningowej. Każda próbka ma więc dokładnie takie proporcje klas jak część treningowa. W~regresji klasy zastępują przedziały kwantylowe $y$ wyznaczone na części treningowej.
+
+Nie stosujemy nadpróbkowania klas ani wag obserwacji, bo zmieniałyby badany mechanizm losowania. W~danym podziale wszystkie warianty korzystają z~tego samego ziarna generatora liczb losowych, dzięki czemu porównania wariantów są sparowane.
+
+\subsection{Miary próbek obliczane przed uczeniem}
+\label{sec:miary}
+
+Niech $S_i$ oznacza zbiór różnych obserwacji w~próbce drzewa $i$, a~$c_{ir}$ liczbę wystąpień obserwacji $r$ w~tej próbce. Miary par uśredniamy po 4950 parach drzew, a~miary pojedynczych próbek po 100 drzewach.
+
+\textbf{Różnorodność par próbek} (odpowiednik niezależności drzew):
+\begin{itemize}
+  \item odległość Jaccarda $D_J(i,j)=1-\frac{|S_i\cap S_j|}{|S_i\cup S_j|}$, czyli część obserwacji występujących w~którejkolwiek z~dwóch próbek, która nie jest im wspólna;
+  \item odległość krotności $D_C(i,j)=\frac12\sum_{r=1}^{n}\left|\frac{c_{ir}}{m}-\frac{c_{jr}}{m}\right|$, która uwzględnia także liczbę powtórzeń;
+  \item różnica rozkładu zmiennej docelowej $D_Y(i,j)$. W~klasyfikacji jest to odległość całkowitej zmienności między proporcjami klas, $\frac12\sum_c|p_{ic}-p_{jc}|$. W~regresji jest to odległość Wassersteina między rozkładami $y$ w~obu próbkach, podzielona przez odchylenie standardowe $y$ w~części treningowej.
+\end{itemize}
+
+\textbf{Reprezentatywność pojedynczej próbki} (odpowiednik siły drzewa):
+\begin{itemize}
+  \item $U_i=|S_i|/n$, czyli udział różnych obserwacji części treningowej w~próbce;
+  \item $R_{Y,i}$, czyli odległość rozkładu $y$ w~próbce od rozkładu w~całej części treningowej (te same odległości co w~$D_Y$);
+  \item $R_{X,i}$, czyli średnia po cechach odległość Wassersteina między rozkładem cechy w~próbce i~w~części treningowej, liczona na cechach standaryzowanych parametrami części treningowej.
+\end{itemize}
+Mniejsza wartość $R_Y$ lub $R_X$ oznacza próbkę bardziej reprezentatywną. Wszystkie miary zależą wyłącznie od wylosowanych indeksów i~danych treningowych. Implementację wektorową (macierz krotności o~wymiarach $M\times n$) sprawdza test zgodności z~prostą implementacją liczoną para po parze (\texttt{tests/test\_diversity\_vectorized.py}).
+
+\subsection{Wielkości mierzone po uczeniu}
+
+Na części testowej mierzymy:
+\begin{itemize}
+  \item jakość każdego drzewa (macro-F1 albo RMSE i~$R^2$) oraz jej średnią i~odchylenie standardowe w~zespole, jako odpowiednik siły;
+  \item różnorodność predykcji każdej pary drzew, jako odpowiednik niezależności. W~klasyfikacji jest to niezgodność~\cite{kuncheva2003}, czyli odsetek obserwacji, na których myli się dokładnie jedno z~dwóch drzew. W~regresji jest to $1-$korelacja błędów obu drzew;
+  \item zysk z~agregacji, czyli różnicę między jakością zespołu a~średnią jakością drzew. W~regresji z~błędem kwadratowym zysk ten jest równy rozrzutowi predykcji drzew wokół ich średniej~\cite{krogh1995}. Zapisujemy obie wielkości, a~ich równość służy jako dodatkowy test poprawności kodu.
+\end{itemize}
+
+\subsection{Koncentracja miar próbek bootstrapowych}
+\label{sec:koncentracja}
+
+W~wariancie odniesienia miary próbek mają prawie zawsze te same wartości. Nie jest to błąd implementacji, lecz własność losowania bootstrapowego. Liczba wystąpień obserwacji w~próbce o~rozmiarze $m=rn$ losowanej ze zwracaniem ma rozkład $\mathrm{Bin}(m,1/n)\approx\mathrm{Poisson}(r)$, więc obserwacja trafia do próbki z~prawdopodobieństwem $p=1-(1-1/n)^{m}\to1-e^{-r}$. Ponieważ $U_i$ jest średnią $n$ prawie niezależnych wskaźników, $\mathbb{E}U_i\to1-e^{-r}$, a~odchylenie standardowe $U_i$ maleje jak $1/\sqrt{n}$ (dla $r=1$ wynosi około $0.31/\sqrt{n}$). To samo dotyczy pary próbek. Obserwacja trafia do obu próbek z~prawdopodobieństwem $p^2$, a~do co najmniej jednej z~prawdopodobieństwem $2p-p^2$, zatem
+\[
+D_J(i,j)\;\to\;1-\frac{p^2}{2p-p^2}=1-\frac{p}{2-p}\approx0.538\qquad(r=1),
+\]
+z~rozrzutem rzędu $1/\sqrt{n}$. Rysunek~\ref{fig:koncentracja} potwierdza to empirycznie. Przy kilkuset obserwacjach wszystkie pary próbek są prawie jednakowo odległe, a~przy kilku tysiącach różnice niemal znikają. Dlatego różnorodność próbek trzeba zmieniać celowo, wariantami S1--S4. Pytanie o~wpływ konkretnego losowania (eksperyment dodatkowy, Sekcja~\ref{sec:losowania}) dotyczy natomiast różnic, które z~natury są bardzo małe.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{01_concentration.png}
+\caption{Koncentracja miar próbek losowanych ze zwracaniem przy $m=n$. (a) Rozkład odległości Jaccarda dla 4950 par próbek przy rosnącym $n$; linia przerywana oznacza granicę $1-p/(2-p)$. (b) Odchylenie standardowe $D_J$ między parami w~jednym zespole oraz odchylenie standardowe średniego $D_J$ między podziałami maleją jak $1/\sqrt{n}$.}
+\label{fig:koncentracja}
+\end{figure}
+
+\subsection{Eksperyment dodatkowy: wpływ konkretnego losowania}
+\label{sec:losowania}
+
+Sprawdzamy także, czy przy ustalonym wariancie na jakość zespołu wpływa to, które konkretnie próbki wylosowano. Dla każdego zbioru w~5 podziałach (pierwsze powtórzenie walidacji krzyżowej) uczymy 20 zespołów w~wariancie odniesienia, w~konfiguracji bagging. Zespoły różnią się wyłącznie ziarnem losowania próbek, a~ziarno drzew jest wspólne. Następnie w~każdym podziale obliczamy korelację Spearmana między miarą próbek a~jakością zespołu dla 20 losowań.
+
+% ====================================================================
+\section{Dane}
+% ====================================================================
+
+\subsection{Zbiory danych}
+
+Badanie obejmuje 12 zbiorów klasyfikacyjnych i~12 regresyjnych z~repozytoriów UCI~\cite{uci} i~OpenML~\cite{openml} oraz z~biblioteki \texttt{scikit-learn} (Tabela~\ref{tab:zbiory}). Trzy zbiory pochodzą z~\texttt{scikit-learn}, dwa (Online Shoppers i~Combined Cycle Power Plant) pobieramy bezpośrednio z~UCI, a~pozostałe z~OpenML według ustalonego identyfikatora wersji. Zbiory różnią się liczbą obserwacji (od 208 do 20\,000), liczbą cech (od 4 do 81), liczbą klas (od 2 do 6) i~stopniem niezrównoważenia klas.
+
+\input{tables/datasets}
+
+\subsection{Przygotowanie danych i~ochrona przed wyciekiem informacji}
+\label{sec:prep}
+
+Część operacji wykonujemy raz, na całym zbiorze, przed jakimkolwiek podziałem. Pozostałe wykonujemy w~każdym podziale osobno i~dopasowujemy wyłącznie na części treningowej. O~przydziale decyduje jedno kryterium. Przed podziałem wolno wykonać tylko operacje, które nie korzystają ze statystyk obliczonych na innych obserwacjach, czyli decyzje dotyczące pojedynczego wiersza albo całej kolumny, niezależne od tego, które obserwacje trafią do części testowej. Wszystko, co jest szacowane z~danych, dopasowujemy na części treningowej~\cite{kaufman2012}. Tabela~\ref{tab:prep} zestawia wszystkie kroki.
+
+\begin{table}[!htbp]
+\centering\small
+\caption{Kolejność kroków przygotowania danych. Kroki 1--7 wykonujemy raz dla zbioru, a~kroki 8--11 osobno w~każdym z~50 podziałów.}
+\label{tab:prep}
+\begin{tabularx}{\textwidth}{r>{\raggedright\arraybackslash}p{0.42\textwidth}>{\raggedright\arraybackslash}X}
+\toprule
+& \textbf{Krok} & \textbf{Dlaczego nie powoduje wycieku} \\
+\midrule
+\multicolumn{3}{l}{\emph{Przed podziałem (cały zbiór)}}\\
+1 & usunięcie kolumn identyfikujących obserwacje i~cech znanych dopiero po fakcie (\texttt{duration} w~Bank Marketing, nazwa samochodu w~Auto MPG, druga zmienna docelowa Y2 w~Energy Efficiency) & decyzja na podstawie dokumentacji zbioru, a~nie wartości w~danych \\
+2 & usunięcie wierszy bez wartości zmiennej docelowej & dotyczy pojedynczego wiersza \\
+3 & usunięcie wierszy z~brakiem w~dowolnej cesze (po zamianie znaczników takich jak ,,?'' na brak) & decyzja zależy tylko od samego wiersza; bez imputacji nie jest obliczana żadna statystyka \\
+4 & usunięcie dokładnych duplikatów (te same cechy i~ta sama wartość zmiennej docelowej) & zapobiega trafieniu tej samej obserwacji jednocześnie do części treningowej i~testowej \\
+5 & usunięcie klas liczących mniej niż 5 obserwacji & element definicji zadania; w~naszych zbiorach nie usunięto żadnej klasy \\
+6 & losowe ograniczenie do 20\,000 obserwacji (w~klasyfikacji z~zachowaniem proporcji klas) & losowanie wierszy; wyznacza populację, z~której tworzymy podziały \\
+7 & usunięcie kolumn stałych & kolumna stała w~całym zbiorze jest stała w~każdej części treningowej i~drzewo nigdy jej nie użyje; w~naszych zbiorach nie usunięto żadnej kolumny \\
+\midrule
+\multicolumn{3}{l}{\emph{W~każdym podziale (dopasowanie tylko na części treningowej)}}\\
+8 & kodowanie one-hot cech kategorycznych & kategorie wyznaczone na części treningowej; kategoria nieobecna w~części treningowej jest kodowana jako wektor zer \\
+9 & kodowanie klas liczbami & słownik klas z~części treningowej \\
+10 & standaryzacja cech dla miary $R_X$, odchylenie standardowe $y$ dla $D_Y$ i~$R_Y$, przedziały kwantylowe $y$ dla S4 & parametry wyznaczone na części treningowej \\
+11 & losowanie próbek, obliczanie miar próbek, uczenie drzew & tylko indeksy części treningowej \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{Braki danych: usuwanie zamiast imputacji.} W~planie braki uzupełnialiśmy medianą (cechy liczbowe) lub osobną kategorią ,,brak'' (cechy kategoryczne). Imputacja dopasowana na części treningowej nie powoduje wycieku informacji, ale w~tym badaniu ma dwie wady. Po pierwsze, sztuczna kategoria i~wiele identycznych wartości mediany zmieniają rozkład cech, a~więc także miarę $R_X$. Po drugie, kategoria ,,brak'' może sama nieść informację o~klasie, której nie ma w~rzeczywistych danych. Dlatego ostatecznie usuwamy wiersze z~brakami. Braki występują tylko w~dwóch zbiorach (Tabela~\ref{tab:zbiory}): w~Adult w~7.4\% wierszy (cechy \texttt{workclass}, \texttt{occupation}, \texttt{native-country}) i~w~Auto MPG w~6 wierszach (\texttt{horsepower}). W~obu zbiorach jest to postępowanie standardowe; wersja zbioru Adult bez braków udostępniana w~repozytorium UCI liczy 45\,222 wiersze. Ponieważ Adult i~tak ograniczamy do 20\,000 obserwacji, rozmiar zbioru użytego w~eksperymencie się nie zmienia. Usuwanie wierszy zakłada, że braki występują całkowicie losowo (MCAR)~\cite{little2019}. W~Adult brak informacji o~zawodzie dotyczy częściej osób, które nie pracują, więc populacja po usunięciu wierszy jest nieco węższa od pierwotnej. Nie wpływa to na porównanie wariantów, bo wszystkie oceniamy na tych samych danych. Wartość \texttt{unknown} w~Bank Marketing jest udokumentowaną kategorią odpowiedzi, a~nie brakiem, więc tych wierszy nie usuwamy. Przetwarzanie danych w~podziale nie zawiera imputacji i~zgłasza błąd, gdyby brak dotarł do tego etapu.
+
+\textbf{Duplikaty.} Kilka zbiorów zawiera wiersze identyczne łącznie ze zmienną docelową; najwięcej jest ich w~Spambase (391), Wine Quality (240) i~Online Shoppers (125). Przy losowym podziale kopie tej samej obserwacji mogą trafić jednocześnie do części treningowej i~testowej, co zawyża wynik na części testowej. Ponadto miary $U$ i~$D_J$ traktowałyby kopie jako różne obserwacje. Usuwamy więc duplikaty i~zostawiamy pierwsze wystąpienie. Wiersze o~tych samych cechach i~różnej wartości zmiennej docelowej zostają, bo opisują rzeczywisty szum (np.\ ten sam materiał w~Superconductivity zmierzony kilkakrotnie).
+
+\textbf{Pozostałe zasady.} Cech liczbowych nie standaryzujemy, bo drzewa decyzyjne tego nie wymagają, a~zmienna docelowa w~regresji pozostaje w~oryginalnej skali. Nierównowagi klas nie korygujemy, ponieważ zmieniałoby to badane próbki. Uwzględniamy ją przez warstwowe podziały, metryki niezależne od klasy dominującej (macro-F1, zrównoważona dokładność, ROC-AUC) oraz wariant S4 i~miarę $D_Y$.
+
+% ====================================================================
+\section{Procedura eksperymentalna}
+\label{sec:procedura}
+% ====================================================================
+
+\textbf{Walidacja.} Stosujemy pięciokrotną walidację krzyżową powtórzoną 10 razy, co daje 50 podziałów na zbiór; w~klasyfikacji podziały są warstwowe. Przy pięciu częściach zamiast dziesięciu część testowa w~najmniejszych zbiorach (Sonar, Glass) liczy ponad 40 obserwacji, a~dziesięć powtórzeń zmniejsza wpływ przypadkowego podziału. Wszystkie warianty oceniamy na tych samych podziałach i~z~tymi samymi ziarnami, więc porównania są sparowane. Łącznie nauczyliśmy $24\times50\times15=18\,000$ zespołów po 100 drzew w~eksperymencie głównym, $12\times50\times15=9000$ w~eksperymencie z~baggingiem oraz $24\times5\times20=2400$ w~eksperymencie dodatkowym.
+
+\textbf{Pilotaż.} Przed eksperymentem głównym przeprowadziliśmy pilotaż na wszystkich 24 zbiorach z~jednym powtórzeniem walidacji (CV $5\times1$, te same 15 wariantów, las losowy i~bagging, 20 losowań w~eksperymencie dodatkowym). Jego wyniki przedstawiliśmy na punkcie kontrolnym 10.11.2026. Pilotaż posłużył do sprawdzenia poprawności kodu i~implementacji miar oraz do oszacowania czasu obliczeń (około 1 godziny procesora na powtórzenie). Jego wyników nie używamy w~analizie, ponieważ dane przygotowywaliśmy wtedy jeszcze z~imputacją braków i~bez usuwania duplikatów, a~eksperyment dodatkowy wykorzystywał las losowy. Wszystkie liczby w~raporcie pochodzą z~eksperymentu głównego.
+
+\textbf{Hiperparametry} (Tabela~\ref{tab:hiper}) ustaliliśmy z~góry i~nie stroimy ich, ponieważ badamy wpływ losowania próbek, a~nie szukamy najlepszego modelu. Strojenie w~każdym podziale byłoby dodatkowym źródłem różnic między zespołami. Parametry losowania są czynnikiem eksperymentalnym, dlatego oceniamy wszystkie ich wartości.
+
+\begin{table}[!htbp]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\caption{Hiperparametry drzew (wartości domyślne biblioteki \texttt{scikit-learn}).}
+\label{tab:hiper}
+\begin{tabular}{lll}
+\toprule
+\textbf{Parametr} & \textbf{Las losowy (eksperyment główny)} & \textbf{Bagging (klasyfikacja)} \\
+\midrule
+liczba drzew $M$ & 100 & 100 \\
+\texttt{max\_features} & $\sqrt{d}$ (klasyfikacja), wszystkie (regresja) & wszystkie \\
+\texttt{max\_depth}, \texttt{min\_samples\_leaf} & \texttt{None}, 1 & \texttt{None}, 1 \\
+kryterium podziału & \texttt{gini} / \texttt{squared\_error} & \texttt{gini} \\
+agregacja & średnia prawdopodobieństw / średnia & średnia prawdopodobieństw \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Metryki.} W~klasyfikacji metryką główną jest macro-F1. Zapisujemy też zrównoważoną dokładność, ROC-AUC (jedna klasa przeciw pozostałym, średnia z~równymi wagami~\cite{fawcett2006}) i~dokładność. W~regresji metryką główną jest RMSE; zapisujemy też MAE i~$R^2$. Testy statystyczne i~tabele w~raporcie dotyczą tylko metryk głównych.
+
+% ====================================================================
+\section{Analiza statystyczna}
+\label{sec:stat}
+% ====================================================================
+
+\textbf{Jednostka analizy.} Wyniki z~50 podziałów nie są niezależne, bo części treningowe się pokrywają, więc testy na poziomie podziałów zaniżałyby wartości $p$ \cite{nadeau2003}. Jednostką w~testach jest zbiór danych. Wyniki z~50 podziałów sprowadzamy do jednej wartości na zbiór, średniej lub mediany~\cite{demsar2006}. Klasyfikację i~regresję analizujemy osobno, a~dodatkowo łącznie.
+
+\textbf{Wynik względny.} Aby porównywać zbiory o~różnych skalach, wynik wariantu wyrażamy względem wariantu odniesienia w~tym samym zbiorze. W~klasyfikacji jest to różnica macro-F1 w~punktach procentowych, a~w~regresji względna poprawa RMSE, $(\mathrm{RMSE}_{S1,r=1}-\mathrm{RMSE})/\mathrm{RMSE}_{S1,r=1}$. Wartość dodatnia oznacza wariant lepszy od wariantu odniesienia.
+
+\textbf{Testy.}
+\begin{description}[leftmargin=1.2cm,style=sameline]
+  \item[H1] W~każdym zespole wariantu odniesienia obliczamy korelację Spearmana po 4950 parach drzew (miary $D_J$, $D_C$, $D_Y$ a~różnorodność predykcji pary) i~po 100 drzewach (miary $U$, $R_Y$, $R_X$ a~jakość drzewa). Wynikiem zbioru jest mediana z~50 podziałów. Test Wilcoxona sprawdza, czy mediana po zbiorach różni się od zera.
+  \item[H2] W~każdym zbiorze obliczamy korelację Spearmana między średnią wartością miary a~wynikiem zespołu po 15 wariantach oraz korelację cząstkową Spearmana, w~której kontrolujemy średnią jakość drzew. Wyniki zbiorów porównujemy testem Wilcoxona. Bezpośrednim testem drugiej części H2 jest porównanie wariantu S3 z~$\gamma=0$ i~z $\gamma=0.75$ testem Wilcoxona dla par.
+  \item[H3] Test Friedmana z~poprawką Imana--Davenporta~\cite{demsar2006} sprawdza, czy 15 wariantów różni się jakością; podajemy też średnie rangi. Następnie każdy wariant porównujemy z~wariantem odniesienia testem Wilcoxona. Wykonujemy 14 porównań zamiast 105 porównań wszystkich par, zgodnie z~zaleceniem dla porównań z~metodą kontrolną~\cite{demsar2006}. Średnie wartości miar wariantów zestawiamy z~ich średnimi rangami.
+\end{description}
+Korektę Holma~\cite{holm1979} stosujemy osobno w~każdej rodzinie testów, np.\ dla 14 porównań z~wariantem odniesienia w~danym zadaniu. Poziom istotności wynosi $0.05$, a~wszystkie testy są dwustronne.
+
+\textbf{Moc testów przy 12 zbiorach.} Przy 12 zbiorach najmniejsza osiągalna dwustronna wartość $p$ testu Wilcoxona wynosi $2/2^{12}\approx0.0005$, a~po korekcie Holma dla 14 testów najostrzejszy próg to $0.05/14\approx0.0036$. Aby wynik był istotny, wariant musi więc wygrać z~wariantem odniesienia w~prawie wszystkich zbiorach (suma rang porażek nie większa niż 4). Dlatego oprócz testów częstościowych:
+\begin{itemize}
+  \item analizujemy łącznie wszystkie 24 zbiory na wspólnym wyniku względnym, przy czym próg istotności jest wtedy znacznie łagodniejszy (Tabela~\ref{tab:moc});
+  \item stosujemy bayesowski test znakowanych rang~\cite{benavoli2017} z~obszarem praktycznej równoważności (ROPE) równym $\pm1$\pp{} macro-F1 lub $\pm1\%$ RMSE. Implementacja jest własna, wzorowana na bibliotece \texttt{baycomp}~\cite{baycomp}, z~parametrem rozkładu a~priori $s=0.5$ jak w~tej bibliotece. Test podaje prawdopodobieństwa a~posteriori, że wariant jest gorszy od wariantu odniesienia, praktycznie mu równoważny lub od niego lepszy. Pozwala więc odróżnić brak różnicy od braku dowodów;
+  \item podajemy wielkości efektów (medianę różnicy, liczbę wygranych, dwuseryjny współczynnik korelacji rang) oraz znaczenie praktyczne różnicy, czyli to, czy przekracza ona odchylenie standardowe wyniku wariantu odniesienia między 50 podziałami;
+  \item porównujemy stabilność wyników, czyli stosunek odchyleń standardowych metryki głównej wariantu i~wariantu odniesienia między podziałami. Wariant stabilniejszy może być preferowany nawet przy nieco gorszej średniej.
+\end{itemize}
+
+\input{tables/power}
+
+% ====================================================================
+\section{Wyniki}
+\label{sec:wyniki}
+% ====================================================================
+
+\input{results}
+
+% ====================================================================
+\section{Dyskusja i~ograniczenia}
+% ====================================================================
+
+\input{discussion}
+
+\input{limitations}
+
+\input{future}
+
+% ====================================================================
+\section{Wnioski}
+% ====================================================================
+
+\input{conclusions}
+
+% ====================================================================
+\section{Zmiany względem planu}
+% ====================================================================
+
+Tabela~\ref{tab:zmiany} zestawia wszystkie odstępstwa od planu końcowego z~20.10.2026. Większość z~nich wynika z~uwag prowadzącego do planu.
+
+\begin{table}[!htbp]
+\centering\small
+\caption{Odstępstwa od planu i~ich uzasadnienie.}
+\label{tab:zmiany}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.27\textwidth}X}
+\toprule
+\textbf{Zmiana} & \textbf{Uzasadnienie} \\
+\midrule
+model główny: las losowy z~domyślnym \texttt{max\_features} zamiast drzew rozważających wszystkie cechy & domyślna konfiguracja lasu losowego w~\texttt{scikit-learn}, w~regresji identyczna z~baggingiem; bagging uruchomiliśmy dodatkowo dla klasyfikacji (Sekcja~\ref{sec:rf-bagging}) \\
+głosowanie miękkie zamiast większościowego & tak agreguje predykcje \texttt{RandomForestClassifier}; macro-F1 głosowania większościowego zapisujemy pomocniczo \\
+braki danych: usuwanie wierszy zamiast imputacji; usuwanie duplikatów & Sekcja~\ref{sec:prep}: żadna statystyka nie jest liczona na całym zbiorze, nie powstaje sztuczna kategoria i~żadna obserwacja nie trafia jednocześnie do obu części podziału \\
+oznaczenie $\gamma$ zamiast $\alpha$ w~S3 & uniknięcie pomyłki z~poziomem istotności \\
+eksperyment dodatkowy: bagging ze wspólnym ziarnem drzew & zespoły różnią się wtedy \emph{wyłącznie} losowaniem próbek, jak w~planie; w~lesie losowym zmieniałoby się też losowanie cech \\
+dodatkowe analizy: wynik względny dla 24 zbiorów, test bayesowski, poprawka Imana--Davenporta, tabela mocy & odpowiedź na małą liczbę zbiorów w~każdym zadaniu (Sekcja~\ref{sec:stat}) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ====================================================================
+\section{Odtworzenie wyników}
+% ====================================================================
+
+Kod znajduje się w~repozytorium projektu (Python 3.12, \texttt{scikit-learn} 1.9.1, \texttt{numpy} 2.5.4, \texttt{pandas} 3.1.1, \texttt{scipy} 1.18.1; dokładne wersje zapisano w~\texttt{requirements-lock.txt} i~w~pliku \texttt{config.json} każdego uruchomienia). Ziarno bazowe wynosi 42, a~ziarno podziału $k$ to $42+k$.
+
+\begin{verbatim}
+uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python -r requirements.txt
+python run_experiment.py --run main --n-repeats 10
+python run_experiment.py --run main_bagging --task classification \
+                         --ensemble bagging --n-repeats 10
+python run_experiment.py --run main_draws --draws 20
+python analyze.py --run main --bagging-run main_bagging --draws-run main_draws
+python report/make_tables.py
+\end{verbatim}
+Pełne obliczenia zajęły około \input{tables/cpu_hours}\unskip{} godzin procesora (komputer z~procesorem Apple, 16 procesów równolegle). Przerwane obliczenia można wznowić; program liczy wtedy tylko brakujące podziały.
+
+% ====================================================================
+\section{Deklaracja użycia narzędzi AI}
+% ====================================================================
+
+\input{ai_declaration}
+
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+
+\clearpage
+\appendix
+\section{Wyniki szczegółowe}
+\label{app:szczegoly}
+
+\input{tables/per_dataset}
+
+\end{document}

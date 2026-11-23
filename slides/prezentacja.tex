@@ -1,0 +1,147 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+\usetheme[progressbar=frametitle,numbering=fraction]{metropolis}
+\usepackage[polish]{babel}
+\usepackage{booktabs,tabularx}
+\usepackage{amsmath}
+\graphicspath{{../report/figures/}}
+
+\definecolor{accent}{HTML}{4477AA}
+\setbeamercolor{progress bar}{fg=accent}
+\setbeamercolor{frametitle}{bg=black!85}
+\setbeamercolor{alerted text}{fg=accent!80!black}
+
+\title{Analiza miar różnorodności próbek w~baggingu}
+\subtitle{Uczenie Zespołowe, projekt 1}
+\author{Jerzy Czarnecki \and Małgorzata Dżaman}
+\date{24.11.2026}
+\institute{Politechnika Warszawska, Wydział MiNI}
+
+\begin{document}
+
+\maketitle
+
+% --------------------------------------------------------------
+\begin{frame}{Problem}
+\small
+\textbf{Bagging}: każde drzewo uczy się na osobnej próbce bootstrapowej (losowanie ze zwracaniem $n$ obserwacji z~$n$), predykcje drzew uśredniamy. \textbf{Las losowy}: bagging z~dodatkowym losowaniem cech w~każdym węźle.\\[0.4em]
+\normalsize
+\textbf{Jakość zespołu} zależy od siły drzew $s$ i~ich korelacji $\bar\rho$ \;(Breiman 2001):
+\[
+PE^{*} \le \frac{\bar{\rho}\,(1-s^{2})}{s^{2}}
+\]
+\vspace{-0.5em}
+\begin{itemize}
+  \item obie wielkości mierzymy zwykle \alert{po} uczeniu (predykcje, błędy),
+  \item ale obie zależą od \alert{próbek}, które znamy \alert{przed} uczeniem.
+\end{itemize}
+
+\vspace{0.6em}
+\begin{block}{Pytanie badawcze}
+Czy miary różnorodności i~reprezentatywności próbek, obliczone przed uczeniem, są związane z~jakością zespołu, także po uwzględnieniu siły drzew?
+\end{block}
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{Hipotezy}
+\begin{description}[H1]
+  \item[H1] Bardziej różne próbki $\Rightarrow$ bardziej różne predykcje drzew;\\ bardziej reprezentatywna próbka $\Rightarrow$ lepsze drzewo.
+  \item[H2] Miary próbek wiążą się z~jakością zespołu także przy kontroli jakości drzew; przy stałym rozmiarze większe pokrywanie się próbek szkodzi.
+  \item[H3] Co najmniej jeden sposób losowania daje inny wynik niż losowanie bootstrapowe.
+\end{description}
+\vspace{0.5em}
+Wszystkie testy dwustronne, $\alpha = 0.05$, korekta Holma w~obrębie hipotezy.
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{15 wariantów losowania próbek ($M = 100$ drzew)}
+\small
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+& \textbf{jak losujemy} & \textbf{co zmienia} \\
+\midrule
+\textbf{S1} bootstrap & ze zwracaniem, $m = rn$, $r \in \{0.2,\dots,1\}$ & rozmiar próbki (siła i~różnorodność naraz) \\
+\textbf{S2} bez zwracania & $m = sn$, $s = 1-e^{-r}$ & to samo $U$ co S1, bez powtórzeń \\
+\textbf{S3} wspólny rdzeń & $m = 0.5n$; $\gamma m$ obserwacji \alert{wspólnych dla wszystkich} drzew, reszta osobno & \alert{tylko pokrywanie się} próbek \\
+\textbf{S4} warstwowy & bootstrap osobno w~każdej klasie / przedziale $y$ & usuwa wahania proporcji klas \\
+\bottomrule
+\end{tabularx}
+
+\vspace{0.6em}
+Wariant odniesienia: S1~$r = 1$ (losowanie bootstrapowe, $m = n$). Wszystkie warianty uczymy na tych samych podziałach i~z~tymi samymi ziarnami.
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{Miary próbek i~wielkości po uczeniu}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\textbf{Przed uczeniem} (indeksy próbek i~część treningowa)\\[0.3em]
+\emph{pary próbek} (4950 par):
+\begin{itemize}
+  \item $D_J$: odległość Jaccarda zbiorów obserwacji
+  \item $D_C$: odległość z~uwzględnieniem powtórzeń
+  \item $D_Y$: różnica rozkładów $y$
+\end{itemize}
+\emph{pojedyncza próbka} (100 drzew):
+\begin{itemize}
+  \item $U$: udział różnych obserwacji
+  \item $R_Y$, $R_X$: odległość rozkładu $y$ i~cech od części treningowej
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\textbf{Po uczeniu} (część testowa)\\[0.3em]
+\begin{itemize}
+  \item jakość każdego drzewa \\ $\to$ \alert{siła}
+  \item niezgodność par drzew lub $1-$korelacja błędów \\ $\to$ \alert{niezależność}
+  \item zysk z~agregacji \\ (regresja: $=$ rozrzut predykcji, Krogh i~Vedelsby)
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{Koncentracja miar próbek bootstrapowych}
+\centering
+\includegraphics[width=0.84\textwidth]{01_concentration.png}
+
+\small
+$P(\text{obserwacja w próbce}) \to 1-e^{-1} \approx 0.632$, \quad $D_J \to 1 - \tfrac{p}{2-p} \approx 0.538$, \quad rozrzut $\sim 1/\sqrt{n}$.
+Wynika to z~własności losowania, dlatego różnorodność próbek zmieniamy \alert{celowo}, wybierając wariant losowania.
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{Dane i~protokół}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\begin{itemize}
+  \item 12 zbiorów klasyfikacyjnych i~12 regresyjnych (208--20\,000 obserwacji, 4--81 cech)
+  \item walidacja krzyżowa 5$\times$10, czyli 50 podziałów na zbiór
+  \item las losowy z~domyślnymi parametrami \texttt{sklearn}, głosowanie miękkie; \\ w~klasyfikacji także bagging (bez losowania cech)
+  \item 18\,000, 9\,000 i~2\,400 zespołów po 100 drzew (eksperyment główny, bagging, losowania)
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{Bez wycieku informacji}\\[0.2em]
+\small
+\emph{przed podziałem} tylko decyzje dotyczące pojedynczego wiersza lub kolumny:
+usunięcie braków (bez imputacji), duplikatów, kolumn stałych\\[0.4em]
+\emph{w~każdym podziale, na części treningowej}: one-hot, standaryzacja dla $R_X$, przedziały $y$ dla S4, losowanie próbek
+\end{column}
+\end{columns}
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{Statystyka: jednostką jest zbiór danych}
+\begin{itemize}
+  \item 50 podziałów nie jest niezależnych, więc wynikiem zbioru jest średnia lub mediana po podziałach
+  \item H3: test Friedmana i~14 porównań z~wariantem odniesienia (Wilcoxon, Holm) (Demšar 2006)
+  \item H1, H2: korelacje Spearmana w~zbiorze, potem test Wilcoxona po zbiorach; w~H2 także \alert{korelacja cząstkowa} z~kontrolą jakości drzew
+\end{itemize}
+\vspace{0.3em}
+\begin{alertblock}{Mała liczba zbiorów, mała moc testów}
+Przy 12 zbiorach najmniejsze możliwe $p$ to $0.0005$, a~próg Holma to $0.05/14 = 0.0036$, więc wariant musi być lepszy prawie we wszystkich zbiorach. Dlatego stosujemy też \textbf{analizę łączną 24 zbiorów}, \textbf{bayesowski test znakowanych rang} z~ROPE $\pm 1$\,p.p.\ (klasyfikacja) i~$\pm 1\%$ RMSE (regresja) oraz podajemy wielkości efektów.
+\end{alertblock}
+\end{frame}
+
+\input{results_frames}
+
+\end{document}

@@ -1,0 +1,38 @@
+\begin{table}[!htbp]
+\centering\scriptsize\setlength{\tabcolsep}{4pt}
+\caption{Zbiory danych. $n_0$ oznacza liczbę obserwacji w~źródle, kolumny ,,braki'' i~,,duplikaty'' podają liczbę usuniętych wierszy, $n$ to liczba obserwacji użytych w~eksperymencie (zbiory większe niż 20\,000 obserwacji ograniczono losowo do 20\,000), a~$d$ to liczba cech przed kodowaniem one-hot i~po nim. Ostatnia kolumna zawiera liczebności klas po przygotowaniu danych.}
+\label{tab:zbiory}
+\begin{tabular}{llrrrrrl}
+\toprule
+\textbf{Zbiór} & \textbf{Źródło} & $n_0$ & \textbf{braki} & \textbf{duplikaty} & $n$ & $d$ & \textbf{klasy} \\
+\midrule
+\multicolumn{8}{l}{\emph{Klasyfikacja}}\\
+Adult & OpenML & 48\,842 & 3620 & 163 & 20\,000 & 14 / 120 & 2 kl.: 15035/4965\\
+Bank Marketing & OpenML & 45\,211 & -- & 16 & 20\,000 & 15 / 50 & 2 kl.: 17659/2341\\
+Breast Cancer Wisconsin & sklearn & 569 & -- & -- & 569 & 30 / 30 & 2 kl.: 357/212\\
+German Credit & OpenML & 1\,000 & -- & -- & 1\,000 & 20 / 61 & 2 kl.: 700/300\\
+Glass & OpenML & 214 & -- & 1 & 213 & 9 / 9 & 6 kl.: 76/69/29/17/13/9\\
+Ionosphere & OpenML & 351 & -- & 1 & 350 & 33 / 33 & 2 kl.: 225/125\\
+Online Shoppers & UCI 468 & 12\,330 & -- & 125 & 12\,205 & 17 / 29 & 2 kl.: 10297/1908\\
+Phoneme & OpenML & 5\,404 & -- & 9 & 5\,395 & 5 / 5 & 2 kl.: 3818/1577\\
+Sonar & OpenML & 208 & -- & -- & 208 & 60 / 60 & 2 kl.: 111/97\\
+Spambase & OpenML & 4\,601 & -- & 391 & 4\,210 & 57 / 57 & 2 kl.: 2531/1679\\
+Vehicle & OpenML & 846 & -- & -- & 846 & 18 / 18 & 4 kl.: 218/217/212/199\\
+Waveform-5000 & OpenML & 5\,000 & -- & -- & 5\,000 & 40 / 40 & 3 kl.: 1692/1655/1653\\
+\midrule
+\multicolumn{8}{l}{\emph{Regresja}}\\
+Abalone & OpenML & 4\,177 & -- & -- & 4\,177 & 8 / 10 & \\
+Airfoil Self-Noise & OpenML & 1\,503 & -- & -- & 1\,503 & 5 / 5 & \\
+Auto MPG & OpenML & 398 & 6 & -- & 392 & 7 / 9 & \\
+California Housing & sklearn & 20\,640 & -- & -- & 20\,000 & 8 / 8 & \\
+Concrete & OpenML & 1\,030 & -- & 25 & 1\,005 & 8 / 8 & \\
+Diabetes & sklearn & 442 & -- & -- & 442 & 10 / 10 & \\
+Energy Efficiency (Y1) & OpenML & 768 & -- & -- & 768 & 8 / 8 & \\
+Kin8nm & OpenML & 8\,192 & -- & -- & 8\,192 & 8 / 8 & \\
+Combined Cycle Power Plant & UCI 294 & 9\,568 & -- & 41 & 9\,527 & 4 / 4 & \\
+Superconductivity & OpenML & 21\,263 & -- & 66 & 20\,000 & 81 / 81 & \\
+Wine Quality -- Red & OpenML & 1\,599 & -- & 240 & 1\,359 & 11 / 11 & \\
+Yacht Hydrodynamics & OpenML & 308 & -- & -- & 308 & 6 / 6 & \\
+\bottomrule
+\end{tabular}
+\end{table}

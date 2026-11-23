@@ -1,0 +1,28 @@
+\begin{table}[!htbp]
+\centering\small
+\caption{H1: korelacje Spearmana wewnątrz zespołu w~wariancie odniesienia S1~$r=1$. Podano medianę po zbiorach (z~median po 50 podziałach), liczbę zbiorów z~dodatnią korelacją oraz $p_H$, czyli wartość $p$ testu Wilcoxona po zbiorach z~korektą Holma (6 testów w~zadaniu). W~regresji las losowy jest baggingiem, więc kolumny dla baggingu pominięto.}
+\label{tab:h1}
+\begin{tabular}{lrrrrrr}
+\toprule
+& \multicolumn{3}{c}{\textbf{Las losowy}} & \multicolumn{3}{c}{\textbf{Bagging}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+\textbf{Korelacja} & $\tilde\rho$ & $\rho>0$ & $p_H$ & $\tilde\rho$ & $\rho>0$ & $p_H$ \\
+\midrule
+\multicolumn{7}{l}{\emph{Klasyfikacja}}\\
+pary: $D_J$ ~ różn.\ predykcji & +0.018 & 10/12 & \textbf{0.015} & +0.033 & 12/12 & \textbf{0.003} \\
+pary: $D_C$ ~ różn.\ predykcji & +0.018 & 10/12 & \textbf{0.015} & +0.031 & 12/12 & \textbf{0.003} \\
+pary: $D_Y$ ~ różn.\ predykcji & +0.003 & 9/12 & 0.904 & +0.006 & 7/12 & 0.529 \\
+drzewa: $U$ ~ jakość drzewa & +0.017 & 9/12 & 0.107 & +0.017 & 9/12 & 0.369 \\
+drzewa: $R_Y$ ~ jakość drzewa & +0.004 & 8/12 & 0.904 & -0.011 & 4/12 & 0.529 \\
+drzewa: $R_X$ ~ jakość drzewa & -0.016 & 4/12 & 0.904 & -0.004 & 5/12 & 0.529 \\
+\midrule
+\multicolumn{7}{l}{\emph{Regresja}}\\
+pary: $D_J$ ~ różn.\ predykcji & +0.033 & 12/12 & \textbf{0.003} & \multicolumn{3}{c}{= las losowy} \\
+pary: $D_C$ ~ różn.\ predykcji & +0.031 & 12/12 & \textbf{0.003} & \multicolumn{3}{c}{= las losowy} \\
+pary: $D_Y$ ~ różn.\ predykcji & +0.007 & 10/12 & \textbf{0.037} & \multicolumn{3}{c}{= las losowy} \\
+drzewa: $U$ ~ jakość drzewa & +0.023 & 10/12 & 0.127 & \multicolumn{3}{c}{= las losowy} \\
+drzewa: $R_Y$ ~ jakość drzewa & -0.003 & 6/12 & 0.761 & \multicolumn{3}{c}{= las losowy} \\
+drzewa: $R_X$ ~ jakość drzewa & -0.002 & 5/12 & 0.910 & \multicolumn{3}{c}{= las losowy} \\
+\bottomrule
+\end{tabular}
+\end{table}

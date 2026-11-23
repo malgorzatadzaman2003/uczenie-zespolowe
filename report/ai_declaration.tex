@@ -1,0 +1,17 @@
+Zgodnie z~zasadami przedmiotu opisujemy, do czego i~w~jakim zakresie używaliśmy narzędzi AI. Za treść raportu, interpretację wyników i~wnioski odpowiadają autorzy; wszystkie liczby w~raporcie pochodzą bezpośrednio z~plików wygenerowanych przez kod z~repozytorium (\texttt{results/}, skrypt \texttt{report/make\_tables.py}).
+
+\begin{table}[!htbp]
+\centering\small
+\caption{Użycie narzędzi AI w~projekcie.}
+\label{tab:ai}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.28\textwidth}>{\raggedright\arraybackslash}p{0.2\textwidth}>{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Część projektu} & \textbf{Narzędzie} & \textbf{Zakres i~cel użycia} \\
+\midrule
+plan końcowy (20.10.2026) & \textcolor{red}{[do uzupełnienia]} & \textcolor{red}{[do uzupełnienia]} \\
+pierwsza wersja kodu (8--9.11.2026: próbkowanie, miary parowe, modele, metryki, preprocessing, wczytywanie zbiorów) & \textcolor{red}{[do uzupełnienia -- M.~Dżaman]} & \textcolor{red}{[do uzupełnienia]} \\
+zmiany kodu po uwagach do planu (10.11 i~22.11.2026) & Claude Code (Anthropic, model Claude Opus 5.5) & przegląd kodu względem uwag prowadzącego; implementacja: wektorowe miary próbek, pętla eksperymentu z~korelacjami H1 i~zyskiem z~agregacji, konfiguracje lasu losowego i~baggingu, głosowanie miękkie, przygotowanie danych na poziomie zbioru (braki, duplikaty, cache, poprawki wczytywania OpenML), analiza statystyczna i~wykresy, test zgodności implementacji. Kod przejrzeli i~uruchomili autorzy. \\
+raport i~prezentacja & Claude Code (jw.) & pomoc w~redakcji tekstu i~składzie \LaTeX{}, generowanie tabel z~plików wyników; treść merytoryczną zweryfikowali autorzy \\
+\bottomrule
+\end{tabularx}
+\end{table}
