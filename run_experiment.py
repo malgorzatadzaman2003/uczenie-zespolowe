@@ -12,7 +12,7 @@ Pilot used for the 10.11 checkpoint (all datasets, 5x1 CV):
 Full experiment from the plan (5x10 CV):
     python run_experiment.py --run main --n-repeats 10 --n-jobs 16
 
-Pure bagging (max_features=None) for comparison, classification only:
+Bagging without feature sampling (max_features=None) for comparison, classification only:
     python run_experiment.py --run pilot_bagging --task classification \
         --ensemble bagging --n-repeats 1
 """
@@ -59,10 +59,18 @@ def _draw_job(path, *args):
 
 def build_jobs(args, datasets, fold_dir):
     jobs = []
+    loaded = {
+        name: _quiet(load_dataset, name, max_samples=args.max_samples,
+                     random_state=args.seed)
+        for name in datasets
+    }
 
-    for name in datasets:
-        data = _quiet(load_dataset, name, max_samples=args.max_samples,
-                      random_state=args.seed)
+    # Najdroższe zbiory (n * d) najpierw, żeby nie zostawały na końcu
+    # jako długi ogon pojedynczych zadań.
+    order = sorted(datasets, key=lambda name: -loaded[name]["X"].size)
+
+    for name in order:
+        data = loaded[name]
         X, y, task = data["X"], data["y"], data["task"]
 
         n_repeats = 1 if args.draws else args.n_repeats
@@ -110,14 +118,20 @@ def main():
     parser.add_argument("--n-repeats", type=int, default=10)
     parser.add_argument("--n-estimators", type=int, default=100)
     parser.add_argument("--max-samples", type=int, default=20000)
-    parser.add_argument("--ensemble", default="random_forest",
-                        choices=["random_forest", "bagging"])
+    parser.add_argument("--ensemble", default=None,
+                        choices=["random_forest", "bagging"],
+                        help="default: random_forest; bagging for --draws "
+                             "(Section 4.6 uses bagging without feature sampling, so the "
+                             "ensembles differ only in the drawn samples)")
     parser.add_argument("--draws", type=int, default=0,
                         help="if > 0, run the Section 4.6 experiment with "
                              "this many bagging draws per split")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--n-jobs", type=int, default=-2)
     args = parser.parse_args()
+
+    if args.ensemble is None:
+        args.ensemble = "bagging" if args.draws else "random_forest"
 
     datasets = args.datasets or list_datasets(args.task)
     datasets = [d for d in datasets if d not in args.exclude]

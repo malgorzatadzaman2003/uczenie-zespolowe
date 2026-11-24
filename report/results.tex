@@ -1,0 +1,169 @@
+Wyniki przedstawiamy od najogólniejszego pytania, czyli który sposób losowania daje najlepszy zespół (H3). Następnie opisujemy mechanizm, czyli wpływ rozmiaru i~pokrywania się próbek na siłę i~niezależność drzew, a~potem hipotezy o~miarach próbek (H1, H2). Na końcu omawiamy eksperyment dodatkowy i~porównanie lasu losowego z~baggingiem. Średnie i~odchylenia standardowe metryki głównej z~50 podziałów dla każdego zbioru i~wariantu zawiera Dodatek~\ref{app:szczegoly}.
+
+% --------------------------------------------------------------------
+\subsection{Porównanie wariantów z~wariantem odniesienia (H3)}
+\label{sec:wyniki-h3}
+
+Test Friedmana odrzuca hipotezę o~równoważności 15 wariantów w~obu zadaniach (Tabela~\ref{tab:friedman}), więc sposób losowania wpływa na jakość zespołu. Średnie rangi (Rysunek~\ref{fig:rangi}) pokazują jednak, że wariant odniesienia należy do najlepszych. W~regresji ma najlepszą średnią rangę (4.3). W~klasyfikacji lepsze rangi mają tylko losowanie warstwowe S4 (3.9) i~losowanie bez zwracania z~$s=0.63$ (4.0), czyli warianty najbardziej do niego podobne.
+
+\input{tables/friedman}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{05_average_ranks.png}
+\caption{Średnie rangi 15 wariantów w~teście Friedmana (12 zbiorów w~każdym zadaniu, las losowy). Czarną ramką oznaczono wariant odniesienia S1~$r=1$.}
+\label{fig:rangi}
+\end{figure}
+
+Porównania z~wariantem odniesienia zawiera Tabela~\ref{tab:kontrola}.
+
+Żaden wariant nie jest istotnie lepszy od wariantu odniesienia, ani w~klasyfikacji, ani w~regresji, ani w~analizie łącznej 24 zbiorów. Dwa warianty o~najlepszych rangach w~klasyfikacji (S4 i~S2~$s=0.63$) poprawiają macro-F1 o~medianę $0.09$ i~$0.04$\pp{}. Test bayesowski przypisuje obu prawdopodobieństwo $1.00$ praktycznej równoważności z~wariantem odniesienia, więc wynik wskazuje na brak różnicy praktycznej, a~nie tylko na brak istotności.
+
+Istotnie gorsze są warianty z~dużym wspólnym rdzeniem: S3 z~$\gamma\ge0.25$ w~regresji i~z $\gamma=0.75$ w~klasyfikacji. Przegrywają one w~11 lub 12 z~12 zbiorów, a~w~regresji mediana wzrostu RMSE wynosi od 2.8 do 8.6\%.
+
+Małe próbki (S1 z~$r\le0.4$, S2 z~$s\le0.33$) przegrywają z~wariantem odniesienia w~9--11 z~12 zbiorów, a~w~regresji mediana straty sięga 10\% RMSE. Przy 12 zbiorach wynik nie jest jednak istotny po korekcie Holma ($p_H$ od 0.08 do 0.16). Zgadza się to z~analizą mocy (Tabela~\ref{tab:moc}): wystarczy kilka zbiorów, w~których mniejsze próbki pomagają, aby test nie odrzucił hipotezy zerowej. W~analizie łącznej 24 zbiorów te same warianty są istotnie gorsze ($p_H\le0.014$), a~test bayesowski daje prawdopodobieństwo od 0.93 do 1.00, że są gorsze o~więcej niż szerokość ROPE.
+
+Strata przy najmniejszych próbkach przekracza odchylenie standardowe wyniku wariantu odniesienia między podziałami w~5 zbiorach klasyfikacyjnych i~w~8 regresyjnych. Dla wariantów najbliższych wariantowi odniesienia (S1~$r=0.8$, S2~$s\ge0.55$, S4) różnica nie przekracza tego odchylenia w~żadnym zbiorze.
+
+Mediana stosunku odchyleń standardowych $\sigma/\sigma_0$ wynosi od 0.99 do 1.09 dla wszystkich wariantów z~wyjątkiem S3~$\gamma=0.75$ w~regresji (1.20). Żaden wariant nie jest więc wyraźnie stabilniejszy od wariantu odniesienia, a~duży wspólny rdzeń, oprócz gorszej średniej, zwiększa zmienność wyniku między podziałami.
+
+\input{tables/control}
+
+Rysunek~\ref{fig:zbiory} pokazuje wynik każdego wariantu w~każdym zbiorze. Kierunek wpływu rozmiaru próbki zależy od zbioru. Mniejsze próbki poprawiają wynik w~zbiorach z~dużym szumem w~zmiennej docelowej: Adult (do $+1.5$\pp{} macro-F1), Abalone ($+2.4\%$), Diabetes ($+3.2\%$) i~Wine Quality ($+0.6\%$). Znacznie pogarszają go natomiast w~zbiorach regresyjnych o~niemal deterministycznej zależności i~niewielu cechach. W~zbiorach Airfoil, Energy Efficiency, Yacht i~Concrete RMSE przy $r=0.2$ rośnie o~25--48\%. W~klasyfikacji największą stratę ma Glass ($-16.7$\pp), najmniejszy zbiór, w~którym jest sześć klas, a~najrzadsza z~nich ma w~części treningowej około 7 obserwacji. Próbka z~$r=0.2$ często w~ogóle jej nie zawiera. W~tym samym zbiorze losowanie warstwowe daje największą poprawę ($+1.3$\pp), bo zapewnia obecność każdej klasy w~każdej próbce.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{08_per_dataset.png}
+\caption{Wynik każdego wariantu względem wariantu odniesienia w~każdym zbiorze (średnia z~50 podziałów, las losowy). Lewy panel: różnica macro-F1 w~punktach procentowych. Prawy panel: względna poprawa RMSE w~procentach. Kolor niebieski oznacza wariant lepszy od wariantu odniesienia.}
+\label{fig:zbiory}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{Rozmiar próbki i~pokrywanie się próbek}
+\label{sec:wyniki-rozmiar}
+
+Rysunek~\ref{fig:rozmiar} pokazuje dwa czynniki, które warianty zmieniają celowo. Lewy panel przedstawia wynik S1 i~S2 w~funkcji udziału różnych obserwacji $U$. Krzywe obu rodzin prawie się pokrywają, więc przy tej samej liczbie różnych obserwacji nie ma znaczenia, czy próbka zawiera powtórzenia. Potwierdzają to mediany w~analizie łącznej (Tabela~\ref{tab:kontrola}). S1~$r=0.2$ i~S2~$s=0.18$ tracą odpowiednio 3.74 i~3.85 jednostki, a~S1~$r=0.4$ i~S2~$s=0.33$ odpowiednio 1.05 i~1.18 jednostki. Mediana wyniku rośnie monotonicznie z~$U$, choć, jak pokazano wyżej, nie w~każdym zbiorze.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{02_size_and_core.png}
+\caption{Lewy panel: wynik względem wariantu odniesienia w~funkcji udziału różnych obserwacji $U$ dla S1 (losowanie ze zwracaniem) i~S2 (bez zwracania). Prawy panel: wynik S3 w~funkcji udziału wspólnego rdzenia $\gamma$ przy stałym rozmiarze $m=0.5n$. Cienkie linie odpowiadają poszczególnym zbiorom, grube medianie po zbiorach.}
+\label{fig:rozmiar}
+\end{figure}
+
+W~prawym panelu Rysunku~\ref{fig:rozmiar} rozmiar próbki jest stały ($m=0.5n$), a~zmienia się tylko stopień pokrywania się próbek różnych drzew. W~regresji jakość zespołu maleje monotonicznie z~$\gamma$ w~każdym zbiorze. W~klasyfikacji wyraźny spadek występuje dopiero przy $\gamma=0.75$. Tabela~\ref{tab:s3} zawiera bezpośredni test drugiej części H2. Próbki niezależne ($\gamma=0$) dają lepszy zespół niż próbki w~75\% wspólne w~9 z~12 zbiorów klasyfikacyjnych ($p=0.007$) i~we wszystkich 12 regresyjnych ($p<0.001$, mediana $+7.4\%$ RMSE). W~klasyfikacji różnica jest jednak mała: według testu bayesowskiego z~prawdopodobieństwem 0.94 mieści się w~ROPE, czyli jest mniejsza niż 1\pp{} macro-F1. Sekcja~\ref{sec:rf-bagging} pokazuje, że wynika to z~losowania cech w~lesie losowym.
+
+\input{tables/s3}
+
+% --------------------------------------------------------------------
+\subsection{Siła i~niezależność drzew}
+\label{sec:wyniki-sila}
+
+Rysunek~\ref{fig:sila} pokazuje położenie zespołów na płaszczyźnie wyznaczonej przez siłę drzew i~różnorodność ich predykcji. Obie wielkości standaryzowaliśmy w~obrębie zbioru, a~jeden punkt odpowiada jednemu wariantowi w~jednym zbiorze. Warianty S1 i~S2 leżą na jednej malejącej krzywej: mniejsza próbka daje drzewa bardziej różne, ale słabsze. Warianty S3 układają się w~poziomy pas, ponieważ przy prawie stałej sile drzew zmienia się tylko ich różnorodność, a~zespoły o~mniejszej różnorodności (większe $\gamma$) są gorsze. Wariant S3 rozdziela więc, zgodnie z~założeniem, niezależność drzew od ich siły.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{03_strength_vs_diversity.png}
+\caption{Średnia jakość drzew a~różnorodność ich predykcji (wartości standaryzowane w~obrębie zbioru), las losowy. Każdy punkt odpowiada jednemu wariantowi w~jednym zbiorze, a~kolor wypełnienia wynikowi zespołu względem wariantu odniesienia.}
+\label{fig:sila}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{H1: miary próbek a~różnice między drzewami jednego zespołu}
+\label{sec:wyniki-h1}
+
+Tabela~\ref{tab:h1} i~Rysunek~\ref{fig:h1} zawierają korelacje między miarami próbek a~własnościami drzew w~obrębie jednego zespołu wariantu odniesienia.
+
+Pary drzew uczonych na bardziej różnych próbkach ($D_J$, $D_C$) dają bardziej różne predykcje. Korelacja jest dodatnia w~10--12 z~12 zbiorów i~istotna po korekcie Holma w~obu zadaniach i~w~obu konfiguracjach zespołu. Jest jednak bardzo słaba. Mediana $\rho$ wynosi 0.02--0.03, więc miara wyjaśnia rzędu 0.1\% zmienności różnorodności par. Różnica rozkładu zmiennej docelowej $D_Y$ wiąże się z~różnorodnością predykcji jeszcze słabiej i~istotnie tylko w~regresji ($\tilde\rho=0.007$).
+
+Żadna z~miar reprezentatywności ($U$, $R_Y$, $R_X$) nie jest istotnie związana z~jakością pojedynczego drzewa. Dla $U$ korelacja jest dodatnia w~9 lub 10 zbiorach ($\tilde\rho\approx0.02$), ale nie jest istotna po korekcie Holma. Dla $R_Y$ i~$R_X$ znak korelacji zmienia się między zbiorami.
+
+\input{tables/h1}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{04_h1_within_ensemble.png}
+\caption{H1 dla lasu losowego w~wariancie odniesienia: mediana (po 50 podziałach) korelacji Spearmana w~każdym zbiorze. Kolor niebieski: miary par próbek a~różnorodność predykcji par drzew. Kolor pomarańczowy: miary pojedynczej próbki a~jakość drzewa.}
+\label{fig:h1}
+\end{figure}
+
+Przyczynę słabości tych związków widać na Rysunku~\ref{fig:pary}. W~jednym zespole odległość Jaccarda wszystkich 4950 par próbek mieści się w~wąskim przedziale od około 0.46 do 0.62, zgodnie z~koncentracją opisaną w~Sekcji~\ref{sec:koncentracja}. Różnorodność predykcji tych samych par zmienia się natomiast kilkukrotnie. Różnice między drzewami zespołu wynikają więc przede wszystkim z~tego, \emph{które} obserwacje (a~w~lesie losowym także które cechy) trafiły do próbki, a~nie z~tego, \emph{ile} obserwacji dwie próbki mają wspólnych.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{09_pair_example.png}
+\caption{Przykład H1 w~jednym podziale: odległość Jaccarda i~różnorodność predykcji dla 4950 par drzew w~zbiorach Breast Cancer (klasyfikacja, niezgodność) i~Diabetes (regresja, $1-$korelacja błędów).}
+\label{fig:pary}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{H2: miary próbek a~jakość zespołu}
+\label{sec:wyniki-h2}
+
+Tabela~\ref{tab:h2} zawiera korelacje między średnią wartością miary a~jakością zespołu po 15 wariantach, liczone w~każdym zbiorze osobno. Rysunek~\ref{fig:h2} pokazuje te korelacje dla poszczególnych zbiorów.
+
+\textbf{Korelacja prosta} ma w~większości zbiorów ten sam znak. Wyższe $U$ idzie w~parze z~lepszym zespołem, a~większa różnorodność par ($D_J$, $D_C$, $D_Y$) i~gorsza reprezentatywność ($R_Y$, $R_X$) z~gorszym. Wszystkie te miary zmieniają się bowiem razem z~rozmiarem próbki. Kierunek nie jest jednak wspólny dla wszystkich zbiorów. W~Adult, Abalone, Diabetes i~Wine Quality znaki są odwrócone, a~są to te same zbiory, w~których mniejsze próbki poprawiają wynik (Rysunek~\ref{fig:zbiory}). Dlatego żadna korelacja prosta nie jest istotna po korekcie Holma, choć np.\ dla $U$ znak jest ten sam w~9 lub 10 z~12 zbiorów.
+
+\textbf{Korelacja cząstkowa}, czyli korelacja po usunięciu związku ze średnią jakością drzew, jest dodatnia prawie we wszystkich zbiorach (dolny wiersz Rysunku~\ref{fig:h2}). W~regresji wszystkie miary różnorodności par są dodatnio związane z~jakością zespołu we wszystkich 12 zbiorach ($\tilde\rho$ od 0.58 do 0.69, $p_H=0.003$). Najsilniejszy związek ma różnorodność predykcji ($\tilde\rho=0.77$). Przy tej samej sile drzew bardziej różne próbki dają więc lepszy zespół, zgodnie z~oszacowaniem Breimana. Dodatnie korelacje cząstkowe $R_Y$ i~$R_X$ mają tę samą przyczynę. Przy ustalonej sile drzew mniej reprezentatywna próbka jest w~praktyce próbką mniejszą, a~więc bardziej różną od pozostałych. W~lesie losowym w~klasyfikacji korelacje cząstkowe są dodatnie w~9 lub 10 z~12 zbiorów, ale słabsze i~nieistotne po korekcie ($p_H\ge0.19$). W~baggingu (Tabela~\ref{tab:h2bag}) ten sam związek jest istotny i~występuje we wszystkich 12 zbiorach ($\tilde\rho$ od 0.54 do 0.62 dla miar par, $p_H=0.003$).
+
+\input{tables/h2}
+
+\input{tables/h2bag}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{06_h2_correlations.png}
+\caption{H2 w~poszczególnych zbiorach (las losowy). Górny wiersz: korelacja Spearmana między średnią wartością miary a~jakością zespołu po 15 wariantach. Dolny wiersz: korelacja cząstkowa przy kontroli średniej jakości drzew.}
+\label{fig:h2}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{Miary próbek a~ranking wariantów}
+\label{sec:wyniki-rangi}
+
+Druga część PB3 dotyczy tego, czy miary obliczone przed uczeniem pozwalają wskazać lepszy wariant bez uczenia zespołów. Tabela~\ref{tab:miary-rangi} zestawia średnią wartość każdej miary ze średnią rangą wariantu. Najsilniej z~rangą wiąże się $U$ ($\rho=-0.90$ w~klasyfikacji i~$-0.70$ w~regresji): im więcej różnych obserwacji w~próbce, tym lepsza ranga. W~klasyfikacji istotne są także $D_Y$, $R_Y$, $R_X$ i~różnorodność predykcji; większa wartość tych miar oznacza gorszą rangę.
+
+\input{tables/measures_ranks}
+
+Rysunek~\ref{fig:miary-rangi} pokazuje jednak, że żadna pojedyncza miara nie porządkuje wariantów poprawnie. Przy tym samym $U=0.5$ cztery warianty S3 zajmują w~regresji rangi od 6 do 14, ponieważ $U$ nie uwzględnia pokrywania się próbek. Odległość Jaccarda je uwzględnia, ale jej związek z~jakością jest niemonotoniczny. Najgorsze warianty leżą na obu końcach skali. S3~$\gamma=0.75$ ma najmniejsze $D_J$, bo próbki są zbyt podobne, a~S1~$r=0.2$ i~S2~$s=0.18$ największe, bo próbki są różne, ale bardzo małe. To samo dotyczy różnorodności predykcji mierzonej po uczeniu. Najlepsze warianty mają duże $U$ i, przy tym $U$, możliwie duże $D_J$. W~tym obszarze leży wariant odniesienia.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{10_measures_vs_ranks.png}
+\caption{Średnia wartość miary wariantu (po zbiorach) a~jego średnia ranga w~teście Friedmana. Kolumny: udział różnych obserwacji $U$, odległość Jaccarda $D_J$ oraz, dla porównania, różnorodność predykcji mierzona po uczeniu.}
+\label{fig:miary-rangi}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{Eksperyment dodatkowy: wpływ konkretnego losowania}
+\label{sec:wyniki-losowania}
+
+Przy ustalonym wariancie (bagging, wariant odniesienia) 20 zespołów różniących się tylko ziarnem losowania próbek nie wykazuje związku między miarami próbek a~jakością zespołu (Tabela~\ref{tab:losowania}, Rysunek~\ref{fig:losowania}). Mediany korelacji mieszczą się w~przedziale $\pm0.1$, znak zmienia się między zbiorami i~żaden test nie jest istotny. Na podstawie miar próbek nie da się więc wybrać lepszego z~20 wylosowanych zespołów.
+
+\input{tables/draws}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{11_draws.png}
+\caption{Eksperyment dodatkowy: w~każdym zbiorze mediana (po 5 podziałach) korelacji Spearmana między średnią miarą próbek a~jakością zespołu dla 20 losowań próbek w~baggingu (wariant odniesienia).}
+\label{fig:losowania}
+\end{figure}
+
+% --------------------------------------------------------------------
+\subsection{Las losowy a~bagging}
+\label{sec:rf-bagging}
+
+W~klasyfikacji powtórzyliśmy eksperyment dla baggingu, czyli drzew rozważających w~każdym węźle wszystkie cechy (Sekcja~\ref{sec:model}). Także tu test Friedmana odrzuca równoważność wariantów ($\chi^2_F=55.9$, $F_{ID}=5.49$, $p<0.001$), a~żaden wariant nie jest istotnie lepszy od wariantu odniesienia. Rysunek~\ref{fig:rf-bagging} pokazuje dwie różnice między konfiguracjami.
+
+Bagging jest znacznie bardziej wrażliwy na pokrywanie się próbek. S3~$\gamma=0.75$ obniża macro-F1 o~medianę 1.48\pp{}, a~w~lesie losowym o~0.48\pp{}. S3~$\gamma=0.5$ i~$\gamma=0.75$ przegrywają z~wariantem odniesienia we wszystkich 12 zbiorach ($p_H=0.007$). Korelacje cząstkowe z~H2 są w~baggingu istotne we wszystkich zbiorach (Tabela~\ref{tab:h2bag}), a~związek badany w~H1 jest silniejszy ($\tilde\rho=0.033$ zamiast 0.018, 12 z~12 zbiorów, Tabela~\ref{tab:h1}).
+
+Las losowy jest natomiast bardziej wrażliwy na małe próbki. S1~$r=0.2$ obniża w~nim macro-F1 o~1.62\pp{}, a~w~baggingu o~1.16\pp{}. W~baggingu umiarkowanie mniejsze próbki (S1~$r=0.6$, S2~$s=0.45$) mają nawet minimalnie dodatnią medianę, choć mieszczącą się w~ROPE.
+
+Predykcje drzew lasu losowego są bardziej różne niż predykcje drzew baggingu we wszystkich 12 zbiorach (prawy panel Rysunku~\ref{fig:rf-bagging}). Losowanie cech jest więc drugim, niezależnym od losowania obserwacji źródłem różnorodności. Częściowo zastępuje ono różnorodność próbek, ale osłabia drzewa, dlatego dodatkowe zmniejszenie próbki szkodzi lasowi losowemu bardziej niż baggingowi.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{07_rf_vs_bagging.png}
+\caption{Las losowy a~bagging (klasyfikacja). Lewy panel: mediana po zbiorach różnicy macro-F1 każdego wariantu względem wariantu odniesienia w~tej samej konfiguracji. Prawy panel: średnia różnorodność predykcji drzew (niezgodność) w~wariancie odniesienia; linia przerywana oznacza równość.}
+\label{fig:rf-bagging}
+\end{figure}

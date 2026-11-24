@@ -1,0 +1,21 @@
+Tabela~\ref{tab:ai} przedstawia do czego i~w~jakim zakresie używaliśmy narzędzi AI. Wszystkie liczby w~raporcie pochodzą z~plików wyników wygenerowanych przez kod z~repozytorium (\texttt{results/}, skrypt \texttt{report/make\_tables.py}).
+
+\begin{table}[!htbp]
+\centering\footnotesize
+\caption{Użycie narzędzi AI w~projekcie.}
+\label{tab:ai}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.17\textwidth}>{\raggedright\arraybackslash}p{0.1\textwidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.24\textwidth}}
+\toprule
+\textbf{Część projektu} & \textbf{Narzędzie} & \textbf{Co zrobiło AI} & \textbf{Wkład autorów} \\
+\midrule
+plan końcowy & ChatGPT & przegląd literatury naukowej, uporządkowanie koncepcji projektu i~dopracowanie planu badawczego: pytań i~hipotez badawczych, wariantów losowania próbek, miar różnorodności i~reprezentatywności, procedury eksperymentalnej oraz sposobu analizy wyników & wstępny przegląd literatury, pierwotne hipotezy\\
+pierwsza wersja kodu: wczytywanie zbiorów, przygotowanie danych, warianty losowania, miary próbek, modele, metryki & ChatGPT & projekt struktury repozytorium i~implementacja bazowych modułów w~Pythonie: wariantów losowania próbek, miar różnorodności i~reprezentatywności próbek, modeli zespołowych, metryk jakości, przygotowania danych i~wczytywania zbiorów; analiza i~poprawianie błędów oraz niejasności & uruchomienie, przetestowanie i~weryfikacja kodu \\
+cały projekt & Claude Code & wyjaśnianie pojęć i~metod, których wcześniej nie znaliśmy (m.in. miary różnorodności, korekta Holma, test bayesowski, korelacja cząstkowa), wskazywanie literatury & nauka metod na podstawie wyjaśnień i~cytowanych źródeł \\
+zmiany kodu po uwagach & Claude Code & przegląd kodu pod kątem uwag i~niedociągnięć; usprawnienia: wektorowe obliczanie miar próbek, pętla eksperymentu (korelacje do H1, zysk z~agregacji), konfiguracje lasu losowego i~baggingu, głosowanie miękkie, przygotowanie danych bez wycieku informacji (usuwanie braków i~duplikatów), poprawki wczytywania zbiorów z~OpenML, analiza statystyczna i~wykresy, test zgodności implementacji; zaproponowanie części metod analizy (test bayesowski, analiza łączna 24 zbiorów, tabela mocy) & uruchomienie eksperymentów, wskazanie uwag do uwzględnienia, akceptacja lub odrzucenie proponowanych zmian, przegląd kodu i~wyników \\
+tekst raportu & Claude Code & przeredagowanie większości tekstu z~wersji wstępnej; przeredagowanie przeglądu literatury; korekta językowa i~typograficzna & wstępna wersja tekstu na podstawie planu końcowego, kodu i~wyników, poprawki terminologii i~stylu, sprawdzenie treści i~liczb \\
+tabele, rysunki i~prezentacja & Claude Code & skrypty tworzące tabele i~rysunki z~plików wyników, skład \LaTeX{} raportu i~slajdów & przegląd i~poprawki \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Wszystkie fragmenty tekstu i~kodu napisane lub zmienione z~pomocą narzędzi AI zostały sprawdzone. Odpowiedzialność za treść raportu, interpretację wyników i~wnioski ponoszą autorzy.

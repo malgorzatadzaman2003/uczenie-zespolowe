@@ -1,0 +1,130 @@
+% --------------------------------------------------------------
+\begin{frame}{H3: żaden wariant nie jest lepszy od wariantu odniesienia}
+\begin{columns}[T]
+\begin{column}{0.6\textwidth}
+\includegraphics[width=\textwidth]{05_average_ranks.png}
+\end{column}
+\begin{column}{0.4\textwidth}
+\small
+\begin{itemize}
+  \item test Friedmana: $p<0.001$ w~obu zadaniach, więc sposób losowania \alert{wpływa} na wynik
+  \item najlepsze S4 i~S2~$s{=}0.63$, ale tylko $+0.09$ i~$+0.04$\,p.p.; test bayesowski: $P(\text{ROPE}) = 1.00$
+  \item \alert{istotnie gorsze}: wspólny rdzeń (S3, $\gamma \ge 0.25$), w~analizie 24 zbiorów także małe próbki
+  \item stabilność: $\sigma/\sigma_0 \approx 1$, dla S3~$\gamma{=}0.75$ w~regresji $1.20$
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{O~wyniku decyduje liczba różnych obserwacji i~pokrywanie się próbek}
+\centering
+\includegraphics[width=0.58\textwidth]{02_size_and_core.png}
+
+\small
+S1~$\approx$ S2 przy tym samym $U$, więc powtórzenia obserwacji nie wpływają na wynik. \quad
+S3 (stałe $m$): $\gamma = 0$ lepsze od $\gamma = 0.75$ w~\alert{21 z~24} zbiorów, $p<0.001$.
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{Siła a~niezależność drzew}
+\centering
+\includegraphics[width=0.84\textwidth]{03_strength_vs_diversity.png}
+
+\small
+S1 i~S2 przesuwają się \alert{po krzywej} kompromisu: przy mniejszej próbce drzewa są bardziej różne, ale słabsze.\\
+S3 zmienia \alert{tylko niezależność} przy stałej sile, więc bezpośrednio sprawdza oszacowanie Breimana.
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{H1 i~konkretne losowanie: bardzo słaby związek}
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\includegraphics[width=\textwidth]{09_pair_example.png}
+\end{column}
+\begin{column}{0.45\textwidth}
+\small
+\begin{itemize}
+  \item $D_J$ a~różnice predykcji par drzew: dodatnia korelacja w~10--12 z~12 zbiorów, istotna, ale \alert{$\rho \approx 0.02$--$0.03$}
+  \item $U$, $R_Y$, $R_X$ a~jakość drzewa: brak związku
+  \item 20 losowań tego samego zespołu: brak związku miar z~jakością ($|\tilde\rho| < 0.1$, wszystkie $p_H > 0.4$)
+\end{itemize}
+\vspace{0.3em}
+Przyczyna: \alert{koncentracja} miar, prawie wszystkie pary mają $D_J \approx 0.54$.
+\end{column}
+\end{columns}
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{H2: przy tej samej sile drzew różnorodność próbek poprawia zespół}
+\small
+Korelacja miary z~jakością zespołu w~15 wariantach, mediana po zbiorach (w~nawiasie liczba zbiorów z~$\rho>0$)
+\vspace{0.4em}
+
+\centering
+\begin{tabular}{lcccc}
+\toprule
+& \multicolumn{2}{c}{\textbf{prosta}} & \multicolumn{2}{c}{\textbf{cząstkowa} (kontrola siły drzew)} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+\textbf{Miara $D_J$} & $\tilde\rho$ & $p_H$ & $\tilde\rho$ & $p_H$ \\
+\midrule
+regresja & $-0.42$ (4/12) & 1.000 & $+0.59$ (\alert{12/12}) & \textbf{0.003} \\
+klasyfikacja, las losowy & $-0.56$ (2/12) & 0.196 & $+0.28$ (9/12) & 0.205 \\
+klasyfikacja, bagging & $-0.16$ (5/12) & 1.000 & $+0.54$ (\alert{12/12}) & \textbf{0.003} \\
+\bottomrule
+\end{tabular}
+
+\raggedright
+\vspace{0.3em}
+\begin{itemize}
+  \item bez kontroli kierunek zależy od zbioru: w~zbiorach z~dużym szumem (Adult, Abalone, Diabetes, Wine Quality) mniejsze próbki poprawiają wynik
+  \item w~lesie losowym losowanie cech już zmniejsza korelację drzew, więc próbki wpływają słabiej
+\end{itemize}
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{Pojedyncza miara nie wskazuje najlepszego wariantu}
+\centering
+\includegraphics[width=0.7\textwidth]{10_measures_vs_ranks.png}
+
+\small
+$U$ nie uwzględnia pokrywania się próbek (S3 przy $U=0.5$: rangi 6--14).
+Związek $D_J$ z~rangą jest \alert{niemonotoniczny}: najgorsze warianty leżą na obu końcach.
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{Las losowy a~bagging}
+\centering
+\includegraphics[width=0.74\textwidth]{07_rf_vs_bagging.png}
+
+\small
+\begin{itemize}
+  \item bagging: wspólny rdzeń $\gamma{=}0.75$ obniża macro-F1 o~$1.48$\,p.p.\ (las losowy: o~$0.48$\,p.p.)
+  \item las losowy: drzewa bardziej różne w~12 z~12 zbiorów, ale większa wrażliwość na małe próbki\\
+  Losowanie cech \alert{zastępuje} część różnorodności próbek.
+\end{itemize}
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}{Wnioski}
+\footnotesize
+\begin{itemize}
+  \item \textbf{H1} potwierdzona częściowo: związek istotny, ale bardzo słaby, bo miary próbek są skoncentrowane
+  \item \textbf{H2} potwierdzona przy kontroli siły drzew; pokrywanie się próbek pogarsza zespół (21 z~24 zbiorów)
+  \item \textbf{H3} warianty się różnią, ale \alert{żaden nie jest lepszy} od wariantu odniesienia
+\end{itemize}
+\begin{block}{Wnioski praktyczne}
+\begin{itemize}
+  \item losowanie bootstrapowe jest dobrym wyborem domyślnym; o~wyniku decyduje $U$, a~nie zwracanie
+  \item próbki różnych drzew nie powinny mieć wspólnej części
+  \item rozmiar próbki warto dobierać dla zbioru (błąd \emph{out-of-bag}), zysk tylko przy dużym szumie
+  \item miary obliczane przed uczeniem opisują sposób losowania, ale nie wskazują lepszego losowania
+\end{itemize}
+\end{block}
+\end{frame}
+
+% --------------------------------------------------------------
+\begin{frame}[standout]
+Dziękujemy!\\[0.5em]
+\normalsize Pytania?
+\end{frame}

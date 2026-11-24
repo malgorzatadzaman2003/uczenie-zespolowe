@@ -1,0 +1,15 @@
+Odpowiedzi na pytania badawcze:
+\begin{description}[leftmargin=1.2cm,style=nextline]
+  \item[PB1 / H1] \textbf{Hipoteza potwierdzona częściowo.} Drzewa uczone na bardziej różnych próbkach dają istotnie bardziej różne predykcje we wszystkich konfiguracjach, ale związek jest bardzo słaby ($\rho\approx0.02$--$0.03$). Reprezentatywność próbki nie jest związana z~jakością drzewa. Przyczyną jest koncentracja miar: w~sensie tych miar próbki jednego zespołu prawie się od siebie nie różnią.
+  \item[PB2 / H2] \textbf{Hipoteza potwierdzona dla korelacji cząstkowej, niepotwierdzona dla korelacji prostej.} Przy kontroli średniej jakości drzew większa różnorodność próbek wiąże się z~lepszym zespołem we wszystkich zbiorach regresyjnych, a~w~baggingu także we wszystkich klasyfikacyjnych. Bez tej kontroli kierunek związku zależy od zbioru. Drugą część H2 potwierdza test bezpośredni: przy stałym rozmiarze większe pokrywanie się próbek pogarsza zespół (21 z~24 zbiorów, $p<0.001$).
+  \item[PB3 / H3] \textbf{Hipoteza potwierdzona, ale tylko w~kierunku wariantów gorszych.} Warianty różnią się istotnie (test Friedmana, $p<0.001$), ale żaden nie jest lepszy od wariantu odniesienia. Istotnie gorsze są próbki z~dużym wspólnym rdzeniem, a~w~analizie łącznej także małe próbki ($U\le0.33$). Losowanie warstwowe i~losowanie bez zwracania z~$s=0.63$ są praktycznie równoważne wariantowi odniesienia. Miary próbek opisują sposób losowania, ale żadna pojedyncza miara nie wskazuje najlepszego wariantu.
+\end{description}
+
+Wnioski praktyczne:
+\begin{enumerate}
+  \item Losowanie bootstrapowe ($m=n$, ze zwracaniem) jest dobrym wyborem domyślnym; żaden z~14 badanych wariantów nie poprawia go w~sposób ogólny.
+  \item Na jakość zespołu wpływa liczba różnych obserwacji w~próbce, a~nie to, czy losujemy ze zwracaniem.
+  \item Próbki różnych drzew nie powinny mieć wspólnej części, bo obniża to jakość i~stabilność zespołu, zwłaszcza bez losowania cech.
+  \item Rozmiar próbki warto dobierać dla zbioru, np.\ na podstawie błędu na obserwacjach spoza próbki. W~zbiorach z~dużym szumem mniejsze próbki poprawiają wynik o~1--3\%, a~w~zbiorach o~deterministycznej zależności mogą zwiększyć RMSE nawet o~połowę.
+  \item Miary próbek obliczane przed uczeniem nie zastępują oceny zespołu. Nie pozwalają wybrać lepszego losowania przy ustalonym wariancie, a~przy porównywaniu wariantów trzeba je interpretować łącznie ($U$ i~$D_J$), a~nie pojedynczo.
+\end{enumerate}

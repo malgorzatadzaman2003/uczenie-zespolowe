@@ -2,8 +2,6 @@ import numpy as np
 import pandas as pd
 
 from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
 
@@ -44,18 +42,16 @@ def create_preprocessor(X_train):
     """
     Creates a transformer tailored to the structure of the training data.
 
-    Numerical columns:
-        - imputation of missing values using the median.
+    Numerical columns are passed through unchanged (trees do not need
+    scaling). Categorical columns are one-hot encoded; categories seen
+    only in the test part are encoded as all zeros.
 
-    Categorical columns:
-        - imputation of missing values with the category 'missing',
-        - One-Hot Encoding.
+    There is no imputation: rows with missing values are removed when
+    the dataset is loaded (src/datasets.py), before any split.
 
     Returns:
         preprocessor - a transformer that has not yet been fitted.
     """
-
-    X_train = _clean_missing_values(X_train)
 
     numeric_columns = X_train.select_dtypes(
         include=["number"]
@@ -70,67 +66,14 @@ def create_preprocessor(X_train):
     transformers = []
 
     if numeric_columns:
-        try:
-            numeric_imputer = SimpleImputer(
-                strategy="median",
-                keep_empty_features=True
-            )
-        except TypeError:
-            numeric_imputer = SimpleImputer(
-                strategy="median"
-            )
-
-        numeric_pipeline = Pipeline(
-            steps=[
-                ("imputer", numeric_imputer)
-            ]
-        )
-
-        transformers.append(
-            (
-                "numeric",
-                numeric_pipeline,
-                numeric_columns
-            )
-        )
+        transformers.append(("numeric", "passthrough", numeric_columns))
 
     if categorical_columns:
-        # sparse_output=False jest dostępne w nowszych wersjach
-        # scikit-learn. Dla starszych używamy sparse=False.
-        try:
-            encoder = OneHotEncoder(
-                handle_unknown="ignore",
-                sparse_output=False
-            )
-        except TypeError:
-            encoder = OneHotEncoder(
-                handle_unknown="ignore",
-                sparse=False
-            )
-
-        categorical_pipeline = Pipeline(
-            steps=[
-                (
-                    "imputer",
-                    SimpleImputer(
-                        strategy="constant",
-                        fill_value="missing"
-                    )
-                ),
-                (
-                    "onehot",
-                    encoder
-                )
-            ]
+        encoder = OneHotEncoder(
+            handle_unknown="ignore",
+            sparse_output=False
         )
-
-        transformers.append(
-            (
-                "categorical",
-                categorical_pipeline,
-                categorical_columns
-            )
-        )
+        transformers.append(("categorical", encoder, categorical_columns))
 
     if not transformers:
         raise ValueError(
@@ -179,6 +122,13 @@ def preprocess_train_test(X_train, X_test):
         raise ValueError(
             "Zbiory treningowy i testowy nie mogą być puste."
         )
+
+    for name, part in (("treningowych", X_train), ("testowych", X_test)):
+        if part.isna().any().any():
+            raise ValueError(
+                f"W danych {name} są braki. Braki usuwa load_dataset "
+                "przed podziałem; preprocessing ich nie uzupełnia."
+            )
 
     preprocessor = create_preprocessor(X_train)
 

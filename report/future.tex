@@ -1,0 +1,9 @@
+\subsection{Kierunki dalszych badań}
+
+\begin{itemize}
+  \item \textbf{Więcej zbiorów.} Główną przeszkodą dla rozstrzygających testów jest liczba zbiorów. Rozszerzenie badania do kilkudziesięciu zbiorów, np.\ z~zestawu OpenML-CC18~\cite{bischl2021}, pozwoliłoby wykryć efekty, które przy 12 zbiorach są na granicy istotności.
+  \item \textbf{Inne zespoły drzew.} Ten sam protokół można zastosować do drzew skrajnie losowych (\emph{Extra Trees})~\cite{geurts2006}, w~których losowe progi podziału zmieniają rolę losowania próbek. Można go też zastosować do stochastycznego wzmacniania gradientowego (\emph{stochastic gradient boosting})~\cite{friedman2002}, w~którym w~każdej iteracji losuje się podpróbkę bez zwracania. Miary próbek da się tam obliczyć przed uczeniem, choć kolejne drzewa są uczone na różnych resztach.
+  \item \textbf{Projektowanie różnorodności zamiast jej pomiaru.} Ponieważ miary próbek bootstrapowych są skoncentrowane, bardziej obiecujące od wybierania korzystnych losowań jest projektowanie losowania o~zadanej różnorodności. Przykładami są bootstrap zrównoważony~\cite{davison1986}, w~którym każda obserwacja występuje łącznie dokładnie $M$ razy, oraz losowanie maksymalizujące $D_J$ przy stałym $U$, odwrotne do wariantu S3.
+  \item \textbf{Miary w~przestrzeni cech.} Nasze miary różnorodności opierają się na indeksach obserwacji. Miary uwzględniające położenie obserwacji, np.\ pokrycie przestrzeni cech lub obszarów trudnych do klasyfikacji, mogą lepiej przewidywać różnice między drzewami.
+  \item \textbf{Reguła doboru rozmiaru próbki.} Warto sprawdzić, czy miary obliczane przed uczeniem wskazują rozmiar próbki równie dobrze jak błąd na obserwacjach spoza próbki (\emph{out-of-bag})~\cite{martinez2010}, bez uczenia wielu zespołów.
+\end{itemize}

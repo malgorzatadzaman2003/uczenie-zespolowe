@@ -1,0 +1,21 @@
+\begin{table}[!htbp]
+\centering\small
+\caption{H2: korelacja Spearmana między średnią wartością miary a~wynikiem zespołu po 15 wariantach, liczona w~każdym zbiorze osobno (bagging, klasyfikacja). Podano medianę po zbiorach, liczbę zbiorów z~dodatnią korelacją i~wartość $p_H$ testu Wilcoxona z~korektą Holma (7 miar). Korelacja cząstkowa uwzględnia średnią jakość drzew.}
+\label{tab:h2bag}
+\begin{tabular}{lrrrrrr}
+\toprule
+& \multicolumn{3}{c}{\textbf{korelacja}} & \multicolumn{3}{c}{\textbf{cząstkowa}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+\textbf{Miara} & $\tilde\rho$ & $\rho>0$ & $p_H$ & $\tilde\rho$ & $\rho>0$ & $p_H$ \\
+\midrule
+\multicolumn{7}{l}{\emph{Klasyfikacja}}\\
+$D_J$ & -0.16 & 5/12 & 1.000 & +0.54 & 12/12 & \textbf{0.003} \\
+$D_C$ & -0.09 & 5/12 & 1.000 & +0.60 & 12/12 & \textbf{0.003} \\
+$D_Y$ & -0.24 & 5/12 & 1.000 & +0.54 & 12/12 & \textbf{0.003} \\
+$U$ & +0.50 & 8/12 & 1.000 & +0.12 & 8/12 & 0.339 \\
+$R_Y$ & -0.36 & 4/12 & 1.000 & +0.26 & 9/12 & 0.068 \\
+$R_X$ & -0.37 & 5/12 & 1.000 & +0.41 & 10/12 & \textbf{0.028} \\
+różnorodność predykcji & -0.16 & 5/12 & 1.000 & +0.62 & 12/12 & \textbf{0.003} \\
+\bottomrule
+\end{tabular}
+\end{table}

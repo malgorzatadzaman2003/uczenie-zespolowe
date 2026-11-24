@@ -11,7 +11,7 @@ from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 #     i RandomForestRegressor (scikit-learn): max_features="sqrt" w
 #     klasyfikacji i 1.0 (wszystkie cechy) w regresji. To główna
 #     konfiguracja po uwagach do planu (Tabela 4).
-# "bagging" – czysty bagging drzew (max_features=None), czyli konfiguracja
+# "bagging" – bagging drzew bez losowania cech (max_features=None), czyli konfiguracja
 #     z pierwotnego planu. Służy jako porównanie: czy losowanie cech
 #     "przykrywa" wpływ różnorodności próbek.
 #

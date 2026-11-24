@@ -3,8 +3,8 @@ Statistical analysis following Section 11 of the plan, revised after
 the feedback on the final plan.
 
 Changes with respect to src/statistics.py (kept for compatibility):
-  * variants are compared only with the control (classical bagging,
-    S1 r=1.0) – 14 tests instead of 105 pairs, as recommended by
+  * variants are compared only with the control (reference variant,
+    bootstrap S1 r=1.0) – 14 tests instead of 105 pairs, as recommended by
     Demšar (2006) and as written in the plan;
   * H1 and H2 are tested explicitly (within-ensemble correlations,
     correlations across variants, partial correlations controlling for
@@ -23,6 +23,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.stats import f as f_dist
 from scipy.stats import friedmanchisquare, rankdata, spearmanr, wilcoxon
 
 from src.experiment import BASELINE_CONFIG
@@ -179,7 +180,7 @@ def aggregate(results):
 
 def add_relative_score(aggregated):
     """
-    score = improvement over classical bagging on the primary metric,
+    score = improvement over the reference variant (S1 r=1) on the primary metric,
     positive = better:
       classification: macro-F1(variant) - macro-F1(baseline),
       regression:     (RMSE(baseline) - RMSE(variant)) / RMSE(baseline).
@@ -243,9 +244,18 @@ def friedman_and_ranks(aggregated):
             continue
 
         stat, p = friedmanchisquare(*[pivot[c] for c in pivot.columns])
-        friedman_rows.append({"task": task, "n_datasets": len(pivot),
-                              "n_variants": pivot.shape[1],
-                              "friedman_statistic": stat, "p_value": p})
+
+        # Poprawka Imana–Davenporta (Demšar 2006, wzór 4): statystyka F
+        # mniej konserwatywna niż chi^2 Friedmana.
+        n, k = pivot.shape
+        f_stat = (n - 1) * stat / (n * (k - 1) - stat)
+        f_p = float(f_dist.sf(f_stat, k - 1, (k - 1) * (n - 1)))
+
+        friedman_rows.append({"task": task, "n_datasets": n,
+                              "n_variants": k,
+                              "friedman_statistic": stat, "p_value": p,
+                              "iman_davenport_F": f_stat,
+                              "iman_davenport_p": f_p})
 
         # Ranga 1 = najlepszy wariant w danym zbiorze.
         ranks = pivot.rank(axis=1, ascending=False).mean()
@@ -258,7 +268,7 @@ def friedman_and_ranks(aggregated):
 
 def control_comparisons(aggregated, pooled=False):
     """
-    Every variant vs classical bagging (S1 r=1.0) on the relative score.
+    Every variant vs the reference variant (S1 r=1.0) on the relative score.
     Wilcoxon signed-rank + Holm (within task), effect sizes and the
     Bayesian signed-rank test.
     """
@@ -342,7 +352,7 @@ def s3_core_test(aggregated):
 
 def h1_tests(results, config=BASELINE_CONFIG):
     """
-    For classical bagging: median over splits of the within-ensemble
+    For the reference variant (S1 r=1): median over splits of the within-ensemble
     Spearman correlations is the dataset result; Wilcoxon over datasets
     tests whether its median differs from 0 (Holm within task).
     """
@@ -517,10 +527,152 @@ def power_table(n_tests=14, alpha=0.05):
 
 
 # ============================================================
-# 7. CAŁOŚĆ
+# 7. H3: CZY MIARY WSKAZUJĄ LEPSZE WARIANTY
 # ============================================================
 
-def run_analysis(results, output_dir, draws=None):
+def measures_vs_ranks(aggregated, ranks):
+    """
+    Plan 11.2 (H3): mean value of every sample measure for each variant
+    (averaged over datasets) next to its average rank, and the Spearman
+    correlation between them across the 15 variants.
+    """
+
+    measures = SAMPLE_MEASURES + ["prediction_diversity"]
+    table = (aggregated.groupby(["task", "sampling_config"])[measures]
+             .mean().reset_index()
+             .merge(ranks, on=["task", "sampling_config"]))
+
+    correlations = []
+    for task, group in table.groupby("task"):
+        for measure in measures:
+            rho, p = spearmanr(group[measure], group["average_rank"])
+            correlations.append({
+                "task": task, "measure": measure,
+                "n_variants": len(group),
+                # rho < 0: wyższa wartość miary -> lepsza (niższa) ranga
+                "rho_with_rank": float(rho), "p_value": float(p),
+            })
+
+    correlations = pd.DataFrame(correlations)
+    for task, idx in correlations.groupby("task").groups.items():
+        correlations.loc[idx, "p_holm"] = holm(
+            correlations.loc[idx, "p_value"])
+
+    return table.sort_values(["task", "average_rank"]), correlations
+
+
+# ============================================================
+# 8. ZNACZENIE PRAKTYCZNE (11.4)
+# ============================================================
+
+def _split_score(results):
+    """Per-split score vs the baseline on the same split (paired)."""
+
+    rows = []
+    for (dataset, task), group in results.groupby(["dataset", "task"]):
+        metric = PRIMARY[task]
+        pivot = group.pivot_table(index="fold", columns="sampling_config",
+                                  values=metric)
+        if BASELINE_CONFIG not in pivot:
+            continue
+        base = pivot[BASELINE_CONFIG]
+        for config in pivot.columns:
+            if task == "classification":
+                diff = pivot[config] - base
+                spread = base.std()
+            else:
+                diff = (base - pivot[config]) / base
+                spread = base.std() / base.mean()
+            rows.append({"dataset": dataset, "task": task,
+                         "sampling_config": config,
+                         "mean_difference": diff.mean(),
+                         "sd_paired_difference": diff.std(),
+                         "sd_between_splits": spread,
+                         # stabilność: sd wariantu / sd kontroli (< 1:
+                         # wariant stabilniejszy między podziałami)
+                         "sd_ratio": pivot[config].std() / base.std(),
+                         "n_splits": int(diff.notna().sum())})
+    return pd.DataFrame(rows)
+
+
+def practical_significance(results):
+    """
+    Plan 11.4: is the difference from the reference variant larger than the
+    variability of the result between splits?
+
+    sd_between_splits = standard deviation of the baseline metric over
+    the 50 splits (relative to its mean for RMSE). A difference counts
+    as practically relevant when |mean difference| exceeds it.
+    """
+
+    per_dataset = _split_score(results)
+    per_dataset = per_dataset[per_dataset["sampling_config"]
+                              != BASELINE_CONFIG].copy()
+    per_dataset["exceeds_split_sd"] = (
+        per_dataset["mean_difference"].abs()
+        > per_dataset["sd_between_splits"])
+    per_dataset["standardized_effect"] = (
+        per_dataset["mean_difference"] / per_dataset["sd_paired_difference"])
+
+    summary = []
+    for (task, config), g in per_dataset.groupby(["task", "sampling_config"]):
+        relevant = g[g["exceeds_split_sd"]]
+        summary.append({
+            "task": task, "sampling_config": config,
+            "n_datasets": len(g),
+            "relevant_better": int((relevant["mean_difference"] > 0).sum()),
+            "relevant_worse": int((relevant["mean_difference"] < 0).sum()),
+            "median_standardized_effect": float(
+                g["standardized_effect"].median()),
+            "median_sd_ratio": float(g["sd_ratio"].median()),
+            "n_more_stable": int((g["sd_ratio"] < 1).sum()),
+        })
+
+    return per_dataset, pd.DataFrame(summary)
+
+
+# ============================================================
+# 9. OPIS ZBIORÓW
+# ============================================================
+
+def dataset_summary(results, max_samples=20000, random_state=42):
+    """Dataset table for the report: cleaning steps and class counts."""
+
+    from src.datasets import load_dataset
+
+    rows = []
+    for name in dict.fromkeys(results["dataset"]):
+        data = load_dataset(name, max_samples=max_samples,
+                            random_state=random_state)
+        c = data["cleaning"]
+        row = {
+            "dataset": name, "task": data["task"],
+            "n_raw": c["n_raw"],
+            "removed_missing_rows": c["removed_missing_rows"],
+            "removed_duplicate_rows": c["removed_duplicate_rows"],
+            "removed_classes": ", ".join(c.get("removed_classes", [])),
+            "removed_columns": ", ".join(c["removed_columns"]),
+            "n": c["n"], "d": c["d"],
+            "d_after_one_hot": int(results.loc[results["dataset"] == name,
+                                               "n_features"].iloc[0]),
+            "n_train": int(results.loc[results["dataset"] == name,
+                                       "n_train"].median()),
+        }
+        if data["task"] == "classification":
+            counts = data["y"].value_counts()
+            row["n_classes"] = len(counts)
+            row["class_counts"] = "/".join(str(v) for v in counts.to_numpy())
+            row["minority_share"] = round(counts.min() / counts.sum(), 3)
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+
+# ============================================================
+# 10. CAŁOŚĆ
+# ============================================================
+
+def run_analysis(results, output_dir, draws=None, with_datasets=True):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -529,6 +681,8 @@ def run_analysis(results, output_dir, draws=None):
     h1_per_dataset, h1 = h1_tests(results)
     h2_per_dataset, h2 = h2_tests(aggregated)
     draw_per_dataset, draw_summary = draw_tests(draws)
+    measures_ranks, measures_ranks_corr = measures_vs_ranks(aggregated, ranks)
+    practical_per_dataset, practical = practical_significance(results)
 
     tables = {
         "aggregated": aggregated,
@@ -546,7 +700,14 @@ def run_analysis(results, output_dir, draws=None):
         "draw_per_dataset": draw_per_dataset,
         "draw_tests": draw_summary,
         "power": power_table(),
+        "measures_vs_ranks": measures_ranks,
+        "measures_vs_ranks_correlation": measures_ranks_corr,
+        "practical_per_dataset": practical_per_dataset,
+        "practical_significance": practical,
     }
+
+    if with_datasets:
+        tables["datasets"] = dataset_summary(results)
 
     for name, table in tables.items():
         table.to_csv(output_dir / f"{name}.csv", index=False)
