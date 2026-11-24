@@ -22,10 +22,10 @@ Zbiory są pobierane z OpenML / UCI / scikit-learn przy pierwszym uruchomieniu i
 # eksperyment główny: 24 zbiory, CV 5x10, las losowy (domyślne parametry scikit-learn)
 .venv/bin/python run_experiment.py --run main --n-repeats 10 --n-jobs 16
 
-# czysty bagging (max_features=None) do porównania, tylko klasyfikacja
+# bagging bez losowania cech (max_features=None) do porównania, tylko klasyfikacja
 .venv/bin/python run_experiment.py --run main_bagging --task classification --ensemble bagging --n-repeats 10 --n-jobs 16
 
-# eksperyment dodatkowy 4.6: 20 losowań klasycznego baggingu w 5 podziałach
+# eksperyment dodatkowy 4.6: 20 losowań wariantu odniesienia (bagging, bootstrap m = n) w 5 podziałach
 .venv/bin/python run_experiment.py --run main_draws --draws 20 --n-jobs 16
 
 # analiza statystyczna i wykresy

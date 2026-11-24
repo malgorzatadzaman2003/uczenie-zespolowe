@@ -711,8 +711,9 @@ def run_draw_experiment(
 ):
     """
     Section 4.6: for the first repetition of the CV (n_splits splits),
-    trains n_draws classical bagging ensembles that differ only in the
-    random draw of bootstrap samples (and tree seeds).
+    trains n_draws bagging ensembles with the reference variant (bootstrap,
+    m = n) that differ only in the random draw of the samples; the tree
+    seed is shared.
 
     The question: within one variant, do ensembles whose samples
     "look better" (by the pre-training measures) perform better?

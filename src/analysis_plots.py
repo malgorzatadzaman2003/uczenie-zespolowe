@@ -399,7 +399,7 @@ def _short_config(config):
 
 
 def plot_per_dataset(aggregated, output_dir):
-    """Score vs classical bootstrap for every dataset and variant."""
+    """Score vs the reference variant (S1 r=1) for every dataset and variant."""
 
     tasks = _tasks(aggregated)
     fig, axes = plt.subplots(1, len(tasks), figsize=(7.5 * len(tasks), 5.2),

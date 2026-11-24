@@ -43,8 +43,8 @@ def main():
     tables = run_analysis(results, Path("results") / args.run / "analysis",
                           draws=draws)
 
-    # Czysty bagging (klasyfikacja): pełna analiza w osobnym katalogu,
-    # m.in. H1 zgodnie z planem (dla klasycznego baggingu).
+    # Bagging bez losowania cech (klasyfikacja): pełna analiza w osobnym
+    # katalogu, m.in. H1 zgodnie z planem.
     bagging_tables = None
     if bagging is not None:
         bagging_tables = run_analysis(

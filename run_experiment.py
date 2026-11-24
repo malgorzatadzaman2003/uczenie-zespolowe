@@ -12,7 +12,7 @@ Pilot used for the 10.11 checkpoint (all datasets, 5x1 CV):
 Full experiment from the plan (5x10 CV):
     python run_experiment.py --run main --n-repeats 10 --n-jobs 16
 
-Pure bagging (max_features=None) for comparison, classification only:
+Bagging without feature sampling (max_features=None) for comparison, classification only:
     python run_experiment.py --run pilot_bagging --task classification \
         --ensemble bagging --n-repeats 1
 """
@@ -121,7 +121,7 @@ def main():
     parser.add_argument("--ensemble", default=None,
                         choices=["random_forest", "bagging"],
                         help="default: random_forest; bagging for --draws "
-                             "(Section 4.6 uses classical bagging, so the "
+                             "(Section 4.6 uses bagging without feature sampling, so the "
                              "ensembles differ only in the drawn samples)")
     parser.add_argument("--draws", type=int, default=0,
                         help="if > 0, run the Section 4.6 experiment with "

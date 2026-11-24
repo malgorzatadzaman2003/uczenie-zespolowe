@@ -3,8 +3,8 @@ Statistical analysis following Section 11 of the plan, revised after
 the feedback on the final plan.
 
 Changes with respect to src/statistics.py (kept for compatibility):
-  * variants are compared only with the control (classical bagging,
-    S1 r=1.0) – 14 tests instead of 105 pairs, as recommended by
+  * variants are compared only with the control (reference variant,
+    bootstrap S1 r=1.0) – 14 tests instead of 105 pairs, as recommended by
     Demšar (2006) and as written in the plan;
   * H1 and H2 are tested explicitly (within-ensemble correlations,
     correlations across variants, partial correlations controlling for
@@ -180,7 +180,7 @@ def aggregate(results):
 
 def add_relative_score(aggregated):
     """
-    score = improvement over classical bagging on the primary metric,
+    score = improvement over the reference variant (S1 r=1) on the primary metric,
     positive = better:
       classification: macro-F1(variant) - macro-F1(baseline),
       regression:     (RMSE(baseline) - RMSE(variant)) / RMSE(baseline).
@@ -268,7 +268,7 @@ def friedman_and_ranks(aggregated):
 
 def control_comparisons(aggregated, pooled=False):
     """
-    Every variant vs classical bagging (S1 r=1.0) on the relative score.
+    Every variant vs the reference variant (S1 r=1.0) on the relative score.
     Wilcoxon signed-rank + Holm (within task), effect sizes and the
     Bayesian signed-rank test.
     """
@@ -352,7 +352,7 @@ def s3_core_test(aggregated):
 
 def h1_tests(results, config=BASELINE_CONFIG):
     """
-    For classical bagging: median over splits of the within-ensemble
+    For the reference variant (S1 r=1): median over splits of the within-ensemble
     Spearman correlations is the dataset result; Wilcoxon over datasets
     tests whether its median differs from 0 (Holm within task).
     """
@@ -597,7 +597,7 @@ def _split_score(results):
 
 def practical_significance(results):
     """
-    Plan 11.4: is the difference from classical bagging larger than the
+    Plan 11.4: is the difference from the reference variant larger than the
     variability of the result between splits?
 
     sd_between_splits = standard deviation of the baseline metric over
